@@ -122,7 +122,7 @@ head (BitString h _ _) = h `div` 2 ^ 7
 
 -- | Same as 'head', but returns boolean.
 headB :: BitString -> Bool
-headB = (==1) . head
+headB = (/=0) . head
 
 -- | \(\mathcal{O}(1)\) Returns bits after the head of 'BitString'.
 -- An exception is thrown in case of an empty 'BitString'.
@@ -147,7 +147,7 @@ uncons (BitString h l t) = Just
 
 -- | \(\mathcal{O}(1)\) Same as 'uncons', but returns 'Bool' instead of 'Bit'.
 unconsB :: BitString -> Maybe (Bool, BitString)
-unconsB = Bi.first (==1) <.> uncons
+unconsB = Bi.first (/=0) <.> uncons
 
 -- | \(\mathcal{O}(1)\) unsafe version of 'uncons'.
 -- Throws an error in case of an empty 'BitString'.
@@ -159,7 +159,7 @@ unconsUnsafe bs = case uncons bs of
 -- | \(\mathcal{O}(1)\) unsafe version of 'unconsB'.
 -- Throws an error in case of an empty 'BitString'.
 unconsUnsafeB :: BitString -> (Bool, BitString)
-unconsUnsafeB = Bi.first (==1) . unconsUnsafe
+unconsUnsafeB = Bi.first (/=0) . unconsUnsafe
 
 -- | \(\mathcal{O}(1)\) checks whether 'BitString' is empty or not.
 null :: BitString -> Bool
@@ -231,7 +231,7 @@ unpack bs = case uncons bs of
 
 -- | \(\mathcal{O}(n)\) converts a 'BitString' into a list of 'Bool's.
 unpackB :: BitString -> [Bool]
-unpackB = fmap (==1) . unpack
+unpackB = fmap (/=0) . unpack
 
 -- | \(\mathcal{O}(n)\) returns the suffix of 'BitString' after
 -- the first \(n\) elements are dropped, or 'empty' if \(n\) is greater

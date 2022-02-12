@@ -3,7 +3,7 @@ version:             0.1.0.0
 github:              "kozlov721/bitstring"
 license:             BSD3
 author:              "Martin Kozlovský"
-maintainer:          "example@example.com"
+# maintainer:          "example@example.com"
 copyright:           "2022 Martin Kozlovský"
 
 extra-source-files:
@@ -26,17 +26,6 @@ dependencies:
 
 library:
   source-dirs: src
-
-# executables:
-  # bitstring-exe:
-    # main:                Main.hs
-    # source-dirs:         app
-    # ghc-options:
-    # - -threaded
-    # - -rtsopts
-    # - -with-rtsopts=-N
-    # dependencies:
-    # - bitstring
 
 tests:
   bitstring-test:
