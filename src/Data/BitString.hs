@@ -239,6 +239,13 @@ pack = P.foldr cons empty
 packB :: [Bool] -> BitString
 packB = P.foldr consB empty
 
+fromNumber :: (Integral a) => a -> BitString
+fromNumber = pack . reverse . go
+  where
+    go :: (Integral a) => a -> [Word8]
+    go 0 = []
+    go n = (fromIntegral n `mod` 2) : go (n `div` 2)
+
 -- | \(\mathcal{O}(1)\) converts a `BitString` back to `ByteString`.
 -- The `BitString` is padded with zeros if its length is not divisible by 8.
 toByteString :: BitString -> ByteString
@@ -270,6 +277,9 @@ unpack bs = case uncons bs of
 -- | \(\mathcal{O}(n)\) converts a 'BitString' into a list of 'Bool's.
 unpackB :: BitString -> [Bool]
 unpackB = fmap (/=0) . unpack
+
+toNumber :: (Integral a) => BitString -> a
+toNumber = P.foldl (\n b -> n * 2 + fromIntegral b) 0 . unpack
 
 -- | \(\mathcal{O}(n)\) returns the suffix of 'BitString' after
 -- the first \(n\) elements are dropped, or 'empty' if \(n\) is greater
@@ -333,13 +343,3 @@ splitAt n bs = (take n bs, drop n bs)
 
 splitAtEnd :: Int64 -> BitString -> (BitString, BitString)
 splitAtEnd n bs = (takeEnd n bs, dropEnd n bs)
-
-toNumber :: (Integral a) => BitString -> a
-toNumber = P.foldl (\n b -> n * 2 + fromIntegral b) 0 . unpack
-
-fromNumber :: (Integral a) => a -> BitString
-fromNumber = pack . reverse . go
-  where
-    go :: (Integral a) => a -> [Word8]
-    go 0 = []
-    go n = (fromIntegral n `mod` 2) : go (n `div` 2)
