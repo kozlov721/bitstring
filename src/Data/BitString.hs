@@ -162,15 +162,18 @@ uncons (BitString _ 0 t) = do
 uncons (BitString h l t) = Just
     (h `div` 2 ^ 7, BitString (h * 2) (l - 1) t)
 
+-- | \(\mathcal{O}(1)\) Same as 'uncons', but returns 'Bool' instead of 'Bit'.
+unconsB :: BitString -> Maybe (Bool, BitString)
+unconsB = Bi.first (/=0) <.> uncons
+
 unsnoc :: BitString -> Maybe (BitString, Bit)
 unsnoc Empty = Nothing
 unsnoc bs = Just (pack $ P.init bits, P.last bits)
   where
     bits = unpack bs
 
--- | \(\mathcal{O}(1)\) Same as 'uncons', but returns 'Bool' instead of 'Bit'.
-unconsB :: BitString -> Maybe (Bool, BitString)
-unconsB = Bi.first (/=0) <.> uncons
+unsnocB :: BitString -> Maybe (BitString, Bool)
+unsnocB = Bi.second (/=0) <.> unsnoc
 
 -- | \(\mathcal{O}(1)\) unsafe version of 'uncons'.
 -- Throws an error in case of an empty 'BitString'.
@@ -183,6 +186,18 @@ unconsUnsafe bs = case uncons bs of
 -- Throws an error in case of an empty 'BitString'.
 unconsUnsafeB :: BitString -> (Bool, BitString)
 unconsUnsafeB = Bi.first (/=0) . unconsUnsafe
+
+-- | \(\mathcal{O}(1)\) unsafe version of 'unsnoc'.
+-- Throws an error in case of an empty 'BitString'.
+unsnocUnsafe :: BitString -> (BitString, Bit)
+unsnocUnsafe bs = case unsnoc bs of
+    Just x  -> x
+    Nothing -> error "empty BitString"
+
+-- | \(\mathcal{O}(1)\) unsafe version of 'unsnocB'.
+-- Throws an error in case of an empty 'BitString'.
+unsnocUnsafeB :: BitString -> (BitString, Bool)
+unsnocUnsafeB = Bi.second (/=0) . unsnocUnsafe
 
 -- | \(\mathcal{O}(1)\) checks whether 'BitString' is empty or not.
 null :: BitString -> Bool
