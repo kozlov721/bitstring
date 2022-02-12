@@ -47,6 +47,7 @@ import GHC.Exts                  (IsList(..))
 
 import qualified Data.Bifunctor       as Bi
 import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Lazy.Internal as BLI
 
 
 -- | Alias for 'Word8'. /Be cautious to only use/
@@ -86,23 +87,23 @@ instance Bits BitString where
   (.&.) = packZipWith (.&.)
   (.|.) = packZipWith (.|.)
   xor = packZipWith xor
-  complement = map complement
+  complement = map not
   shift bs 0 = bs
   shift bs n
     | signum n == -1 = drop (fromIntegral n) bs
     | otherwise = Prelude.foldr cons bs $ replicate n 0
-  rotate = _
+  rotate a b = a
   bitSize = fromIntegral . length
   bitSizeMaybe = Just . fromIntegral . length
   isSigned = const False
-  testBit = _
+  testBit _ _ = True
   bit n = cons 1 $ pack $ replicate (n - 1) 0
   popCount = Data.BitString.foldr (\x y -> y + fromEnum x) 0
 
 
 -- | \(\mathcal{O}(1)\) 'cons' is analogous to '(Prelude.:)' for lists.
 cons :: Bit -> BitString -> BitString
-cons b Empty = singleton b
+cons b Empty = BitString (b * 2 ^ 7) 1 BL.empty
 cons b (BitString h 8 t) = cons b $ BitString 0 0 $ h `BL.cons` t
 cons b (BitString h l t) = BitString (h `div` 2 + b * 2 ^ 7) (l + 1) t
 
@@ -137,6 +138,7 @@ length (BitString _ l t) = fromIntegral l + BL.length t
 -- or 'Nothing' if empty.
 uncons :: BitString -> Maybe (Bit, BitString)
 uncons Empty = Nothing
+uncons (BitString h 1 BLI.Empty) = Just (h `div` 2 ^ 7, Empty)
 uncons (BitString _ 0 t) = do
     (h, t) <- BL.uncons t
     uncons $ BitString h 8 t
@@ -263,12 +265,12 @@ map f bs = case unconsB bs of
     Just (h, t) -> f h `consB` map f t
 
 packZipWith :: (Bool -> Bool -> Bool) -> BitString -> BitString -> BitString
-packZipWith _ Empty bs = Empty
-packZipWith _ bs Empty = Empty
-packZipWith f bs1 bs2 = f h1 h2 `consB` packZipWith f t1 t2
+packZipWith f bs1@(BitString h1 l1 t1) bs2@(BitString h2 l2 t2) =
+    f b1 b2 `consB` packZipWith f r1 r2
   where
-    (h1, t1) = unconsUnsafeB bs1
-    (h2, t2) = unconsUnsafeB bs2
+    (b1, r1) = unconsUnsafeB bs1
+    (b2, r2) = unconsUnsafeB bs2
+packZipWith _ _ _ = Empty
 
 foldr :: (Bool -> a -> a) -> a -> BitString -> a
 foldr _ x Empty = x
