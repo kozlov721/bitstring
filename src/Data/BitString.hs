@@ -22,6 +22,8 @@ module Data.BitString
     , toByteStringPadded
     , drop
     , append
+    , splitAt
+    , splitAtEnd
     ) where
 
 import Prelude hiding
@@ -34,6 +36,8 @@ import Prelude hiding
         , map
         , take
         , drop
+        , splitAt
+        , foldr
         )
 
 import Control.Applicative.Tools ((<.>))
@@ -45,6 +49,7 @@ import Data.Maybe                (fromJust)
 import Data.Word                 (Word8)
 import GHC.Exts                  (IsList(..))
 
+import qualified Prelude              as P
 import qualified Data.Bifunctor       as Bi
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Internal as BLI
@@ -91,8 +96,11 @@ instance Bits BitString where
   shift bs 0 = bs
   shift bs n
     | signum n == -1 = drop (fromIntegral n) bs
-    | otherwise = Prelude.foldr cons bs $ replicate n 0
-  rotate a b = a
+    | otherwise = P.foldr cons bs $ replicate n 0
+  rotate bs 0 = bs
+  rotate bs n
+    | signum n == -1 = (\(x, y) -> append y x) $ splitAt (fromIntegral n) bs
+    | otherwise = (\(x, y) -> append y x) $ splitAtEnd (fromIntegral n) bs
   bitSize = fromIntegral . length
   bitSizeMaybe = Just . fromIntegral . length
   isSigned = const False
@@ -112,6 +120,15 @@ cons b (BitString h l t) = BitString (h `div` 2 + b * 2 ^ 7) (l + 1) t
 -- mistakes with out-of-range values.
 consB :: Bool -> BitString -> BitString
 consB b bs = fromIntegral (fromEnum b) `cons` bs
+
+-- | \(\mathcal{O}(n)\) Similar to 'cons', but append the 'Bit' at the
+-- end of the 'BitString'.
+snoc :: BitString -> Bit -> BitString
+snoc bs b = pack $ unpack bs ++ [b] -- TODO: better implementation
+
+-- | \(\mathcal{O}(n)\) Same as 'snoc', but takes 'Bool' as an argument.
+snocB :: BitString -> Bool -> BitString
+snocB bs b = snoc bs $ fromIntegral $ fromEnum b
 
 -- | \(\mathcal{O}(1)\) Returns the first 'Bit' from a 'BitString'.
 -- Throws an error in case of an empty 'BitString'.
@@ -144,6 +161,12 @@ uncons (BitString _ 0 t) = do
     uncons $ BitString h 8 t
 uncons (BitString h l t) = Just
     (h `div` 2 ^ 7, BitString (h * 2) (l - 1) t)
+
+unsnoc :: BitString -> Maybe (BitString, Bit)
+unsnoc Empty = Nothing
+unsnoc bs = Just (pack $ P.init bits, P.last bits)
+  where
+    bits = unpack bs
 
 -- | \(\mathcal{O}(1)\) Same as 'uncons', but returns 'Bool' instead of 'Bit'.
 unconsB :: BitString -> Maybe (Bool, BitString)
@@ -195,11 +218,11 @@ fromByteStringPadded bl
 
 -- | \(\mathcal{O}(n)\) constructs a 'BitString' from a list of 'Bit's.
 pack :: [Bit] -> BitString
-pack = Prelude.foldr cons empty
+pack = P.foldr cons empty
 
 -- | \(\mathcal{O}(n)\) constructs a 'BitString' from a list of 'Bool's.
 packB :: [Bool] -> BitString
-packB = Prelude.foldr consB empty
+packB = P.foldr consB empty
 
 -- | \(\mathcal{O}(1)\) converts a `BitString` back to `ByteString`.
 -- The `BitString` is padded with zeros if its length is not divisible by 8.
@@ -242,6 +265,12 @@ drop n bs = case uncons bs of
     Nothing      -> empty
     Just (_, t)  -> drop (n - 1) t
 
+dropEnd :: Int64 -> BitString -> BitString
+dropEnd 0 bs = bs
+dropEnd n bs = case unsnoc bs of
+    Nothing      -> empty
+    Just (t, _)  -> dropEnd (n - 1) t
+
 -- | \(\mathcal{O}(n)\) returns the prefix of 'BitString' of length \(n\)
 -- or the 'BitString' itself if \(n\) is greater than the length of the
 -- 'BitString'.
@@ -251,13 +280,19 @@ take n bs = case uncons bs of
     Nothing     -> bs
     Just (h, t) -> h `cons` take (n - 1) t
 
+takeEnd :: Int64 -> BitString -> BitString
+takeEnd 0 bs = empty
+takeEnd n bs = case unsnoc bs of
+    Nothing     -> bs
+    Just (i, l) -> takeEnd (n - 1) i `snoc` l
+
 -- | \(\mathcal{O}(n)\), \(\Omega(n/c)\) appends two 'BitString's.
 -- In general not very efficient if length of the latter 'BitString' is not
 -- divisible by 8.
 append :: BitString -> BitString -> BitString
 append (BitString h1 l1 t1) (BitString h2 8 t2) =
     BitString h1 l1 $ BL.append t1 $ h2 `BL.cons` t2
-append a b = Prelude.foldr cons b (reverse (unpack a))
+append a b = P.foldr cons b (reverse (unpack a))
 
 map :: (Bool -> Bool) -> BitString -> BitString
 map f bs = case unconsB bs of
@@ -277,3 +312,9 @@ foldr _ x Empty = x
 foldr f x bs = f h $ Data.BitString.foldr f x t
   where
     (h, t) = unconsUnsafeB bs
+
+splitAt :: Int64 -> BitString -> (BitString , BitString)
+splitAt n bs = (take n bs, drop n bs)
+
+splitAtEnd :: Int64 -> BitString -> (BitString, BitString)
+splitAtEnd n bs = (takeEnd n bs, dropEnd n bs)
