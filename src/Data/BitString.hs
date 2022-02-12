@@ -333,3 +333,13 @@ splitAt n bs = (take n bs, drop n bs)
 
 splitAtEnd :: Int64 -> BitString -> (BitString, BitString)
 splitAtEnd n bs = (takeEnd n bs, dropEnd n bs)
+
+toNumber :: (Integral a) => BitString -> a
+toNumber = P.foldl (\n b -> n * 2 + fromIntegral b) 0 . unpack
+
+fromNumber :: (Integral a) => a -> BitString
+fromNumber = pack . reverse . go
+  where
+    go :: (Integral a) => a -> [Word8]
+    go 0 = []
+    go n = (fromIntegral n `mod` 2) : go (n `div` 2)
