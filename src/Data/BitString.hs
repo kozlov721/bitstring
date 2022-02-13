@@ -55,6 +55,7 @@ import GHC.Exts                  (IsList (..))
 import Text.Read
 
 import qualified Data.Bifunctor                as Bi
+import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.ByteString.Lazy.Internal as BLI
 import qualified Prelude                       as P
@@ -123,13 +124,13 @@ instance Show BitString where
   show bs = show (unpack bs)
 
 instance Read BitString where
-#ifdef __GLASGOW_HASKELL__
+
   readPrec = parens $ prec 10 $ pack <$> readPrec
-#else
-  readsPrec p = readParen (p > 10) $ \s -> do
-      (xs, t) <- reads s
-      return (pack xs, t)
-#endif
+
+
+
+
+
 
 -- TODO: this can be done faster
 const1 :: Int64 -> BitString
@@ -260,6 +261,9 @@ singleton = (`cons` empty)
 -- | \(\mathcal{O}(1)\) converts a lazy 'ByteString' into a 'BitString'.
 fromByteString :: ByteString -> BitString
 fromByteString = BitString 0 0
+
+fromByteStringStrict :: BS.ByteString -> BitString
+fromByteStringStrict = BitString 0 0 . BL.fromStrict
 
 -- | \(\mathcal{O}(c)\) reverse of 'toByteStringWithPadding'. Returns 'empty'
 -- in case the provided padding is greater than the size of the 'BitString'.
@@ -395,3 +399,30 @@ splitAt n bs = (take n bs, drop n bs)
 
 splitAtEnd :: Int64 -> BitString -> (BitString, BitString)
 splitAtEnd n bs = (dropEnd n bs, takeEnd n bs)
+
+-- Legacy compatibility
+
+{-# DEPRECATED bitString "Use fromByteStringStrict instead" #-}
+bitString :: BS.ByteString -> BitString
+bitString = fromByteStringStrict
+
+{-# DEPRECATED bitStringLazy "Use fromByteString instead" #-}
+bitStringLazy :: ByteString -> BitString
+bitStringLazy = fromByteString
+
+{-# DEPRECATED toList "Use unpackB instead" #-}
+toList :: BitString -> [Bool]
+toList = unpackB
+
+{-# DEPRECATED to01List "Use unpack instead" #-}
+to01List :: BitString -> [Word8]
+to01List = unpack
+
+{-# DEPRECATED fromList "Use packB instead" #-}
+fromList :: BitString -> [Bool]
+fromList = unpackB
+
+{-# DEPRECATED from01List "Use pack instead" #-}
+from01List :: BitString -> [Word8]
+from01List = unpack
+
