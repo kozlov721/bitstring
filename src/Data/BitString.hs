@@ -45,7 +45,7 @@ import Data.Bits
 import Data.ByteString.Lazy      (ByteString)
 import Data.Semigroup            ((<>))
 import Data.Int                  (Int64)
-import Data.Maybe                (fromJust)
+import Data.Maybe                (fromJust, isNothing)
 import Data.Word                 (Word8)
 import GHC.Exts                  (IsList(..))
 
@@ -93,7 +93,6 @@ instance Bits BitString where
   (.|.) = packZipWith (.|.)
   xor = packZipWith xor
   complement = map not
-  shift bs 0 = bs
   shift bs n
     | signum n == -1 = drop (fromIntegral n) bs
     | otherwise = P.foldr cons bs $ replicate n 0
@@ -104,9 +103,27 @@ instance Bits BitString where
   bitSize = fromIntegral . length
   bitSizeMaybe = Just . fromIntegral . length
   isSigned = const False
-  testBit _ _ = True
+  testBit bs n = isNothing $ findSubstring (singleton 0) $ bs .&. bit n
   bit n = cons 1 $ pack $ replicate (n - 1) 0
   popCount = Data.BitString.foldr (\x y -> y + fromEnum x) 0
+
+
+-- TODO: better algorithm (kmp probably)
+findSubstring :: BitString   -- ^ The string to search for
+              -> BitString   -- ^ The string to search in
+              -> Maybe Int64 -- ^ The index of the first substring, if exists
+findSubstring _ Empty = Nothing
+findSubstring p w
+    | lookup p w = Just 0
+    | otherwise = (+1) <$> findSubstring p (tail w)
+  where
+    lookup :: BitString -> BitString -> Bool
+    lookup _ Empty = False
+    lookup Empty _ = True
+    lookup p w
+        | head p == head w = lookup (tail p) (tail w)
+        | otherwise = False
+
 
 
 -- | \(\mathcal{O}(1)\) 'cons' is analogous to '(Prelude.:)' for lists.
