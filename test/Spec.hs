@@ -36,6 +36,10 @@ simpleTests =
         ~: x ++ y ~=? BS.unpack (BS.append (BS.pack x) (BS.pack y))
     | x <- [toBinary n | n <- [0..50]]
     , y <- [toBinary n | n <- [0..50]]
+    ] ++
+    [ "read-show" ~: show bits
+        ~: let bs = BS.pack bits in bs ~=? (read . show) bs
+    | bits <- [toBinary n | n <- [0..100]]
     ]
 
 bitsTests = concat

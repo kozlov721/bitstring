@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP #-}
 
 module Data.BitString
     ( BitString
@@ -51,6 +52,7 @@ import Data.Int                  (Int64)
 import Data.Maybe                (fromJust, isNothing)
 import Data.Word                 (Word8)
 import GHC.Exts                  (IsList(..))
+import Text.Read
 
 import qualified Prelude              as P
 import qualified Data.Bifunctor       as Bi
@@ -72,7 +74,6 @@ data BitString = Empty
     Word8      -- ^ head
     Word8      -- ^ number of used bits in the head
     ByteString -- ^ tail
-    deriving (Show)
 
 instance Eq BitString where
   (BitString h1 l1 t1) == (BitString h2 l2 t2) =
@@ -119,6 +120,17 @@ instance Bits BitString where
   bit n = cons 1 $ pack $ replicate (n - 1) 0
   popCount = Data.BitString.foldr (\x y -> y + fromEnum x) 0
 
+instance Show BitString where
+  show bs = show (unpack bs)
+
+instance Read BitString where
+#ifdef __GLASGOW_HASKELL__
+  readPrec = parens $ prec 10 $ pack <$> readPrec
+#else
+  readsPrec p = readParen (p > 10) $ \s -> do
+      (xs, t) <- reads s
+      return (pack xs, t)
+#endif
 
 -- TODO: this can be done faster
 const1 :: Int64 -> BitString
