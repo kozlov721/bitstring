@@ -157,9 +157,9 @@ findSubstring p w
 
 -- | \(\mathcal{O}(1)\) 'cons' is analogous to '(Prelude.:)' for lists.
 cons :: Bit -> BitString -> BitString
-cons b Empty = BitString (b * 2 ^ 7) 1 BL.empty
+cons b Empty = BitString b 1 BL.empty
 cons b (BitString h 8 t) = cons b $ BitString 0 0 $ h `BL.cons` t
-cons b (BitString h l t) = BitString (h `div` 2 + b * 2 ^ 7) (l + 1) t
+cons b (BitString h l t) = BitString (h + b * 2 ^ l) (l + 1) t
 
 -- | \(\mathcal{O}(1)\) Same as 'cons', but takes 'Bool' instead of 'Bit'.
 -- In general safer than 'cons' as it eliminates possible
@@ -201,12 +201,12 @@ length (BitString _ l t) = fromIntegral l + 8 * BL.length t
 -- or 'Nothing' if empty.
 uncons :: BitString -> Maybe (Bit, BitString)
 uncons Empty = Nothing
-uncons (BitString h 1 BLI.Empty) = Just (h `div` 2 ^ 7, Empty)
+uncons (BitString h 1 BLI.Empty) = Just (h, Empty)
 uncons (BitString _ 0 t) = do
     (h, t) <- BL.uncons t
     uncons $ BitString h 8 t
 uncons (BitString h l t) = Just
-    (h `div` 2 ^ 7, BitString (h * 2) (l - 1) t)
+    (h `div` 2 ^ (l - 1) `mod` 2, BitString (h .&. complement (2 ^ (l - 1))) (l - 1) t)
 
 -- | \(\mathcal{O}(1)\) Same as 'uncons', but returns 'Bool' instead of 'Bit'.
 unconsB :: BitString -> Maybe (Bool, BitString)

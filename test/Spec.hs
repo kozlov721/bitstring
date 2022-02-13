@@ -46,8 +46,8 @@ bitsTests = concat
     [
         [str ~: (show x ++ str ++ show y)
             ~: zipWith fint x y ~=? BS.unpack (BS.pack x `fbits` BS.pack y)
-        | x <- [toBinary n | n <- [50..100]]
-        , y <- [toBinary n | n <- [50..100]]
+        | x <- [toBinaryPad n | n <- [50..100]]
+        , y <- [toBinaryPad n | n <- [50..100]]
         ]
     | (fint, fbits, str) <- [ ((.&.), (.&.), " .&. ")
                             , ((.|.), (.|.), " .|. ")
@@ -55,7 +55,7 @@ bitsTests = concat
     ] ++
     [ "complement" ~: show bits
         ~: map not bits ~=? BS.unpackB (complement (BS.packB bits))
-    | bits <- [map (/=0) (toBinary n) | n <- [0..100]]
+    | bits <- [map (/=0) (toBinaryPad n) | n <- [0..100]]
     ] ++
     [ "shift" ~: show b ++ " `shift` " ++ show n
         ~:  toBinaryPad (b `shift` n)
