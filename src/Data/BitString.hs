@@ -1,5 +1,5 @@
+{-# LANGUAGE CPP          #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE CPP #-}
 
 module Data.BitString
     ( BitString
@@ -31,33 +31,33 @@ module Data.BitString
     ) where
 
 import Prelude hiding
-        ( head
-        , tail
-        , last
-        , init
-        , null
-        , length
-        , map
-        , take
-        , drop
-        , splitAt
-        , foldr
-        )
+    ( drop
+    , foldr
+    , head
+    , init
+    , last
+    , length
+    , map
+    , null
+    , splitAt
+    , tail
+    , take
+    )
 
 import Control.Applicative.Tools ((<.>))
 import Data.Bits
 import Data.ByteString.Lazy      (ByteString)
-import Data.Semigroup            ((<>))
 import Data.Int                  (Int64)
 import Data.Maybe                (fromJust, isNothing)
+import Data.Semigroup            ((<>))
 import Data.Word                 (Word8)
-import GHC.Exts                  (IsList(..))
+import GHC.Exts                  (IsList (..))
 import Text.Read
 
-import qualified Prelude              as P
-import qualified Data.Bifunctor       as Bi
-import qualified Data.ByteString.Lazy as BL
+import qualified Data.Bifunctor                as Bi
+import qualified Data.ByteString.Lazy          as BL
 import qualified Data.ByteString.Lazy.Internal as BLI
+import qualified Prelude                       as P
 
 
 -- | Alias for 'Word8'. /Be cautious to only use/
@@ -70,10 +70,9 @@ type Bit = Word8
 -- from single bits instead of bytes. This can be a useful
 -- abstraction when constructing binary data.
 data BitString = Empty
-               | BitString
-    Word8      -- ^ head
-    Word8      -- ^ number of used bits in the head
-    ByteString -- ^ tail
+               | BitString Word8      -- ^ head
+                           Word8      -- ^ number of used bits in the head
+                           ByteString -- ^ tail
 
 instance Eq BitString where
   (BitString h1 l1 t1) == (BitString h2 l2 t2) =
@@ -157,7 +156,7 @@ findSubstring p w
 
 -- | \(\mathcal{O}(1)\) 'cons' is analogous to '(Prelude.:)' for lists.
 cons :: Bit -> BitString -> BitString
-cons b Empty = BitString b 1 BL.empty
+cons b Empty             = BitString b 1 BL.empty
 cons b (BitString h 8 t) = cons b $ BitString 0 0 $ h `BL.cons` t
 cons b (BitString h l t) = BitString (h + b * 2 ^ l) (l + 1) t
 
@@ -179,7 +178,7 @@ snocB bs b = snoc bs $ fromIntegral $ fromEnum b
 -- | \(\mathcal{O}(1)\) Returns the first 'Bit' from a 'BitString'.
 -- Throws an error in case of an empty 'BitString'.
 head :: BitString -> Bit
-head Empty = error "empty BitString"
+head Empty             = error "empty BitString"
 head (BitString _ 0 t) = BL.head t `div` 2 ^ 7
 head (BitString h _ _) = h `div` 2 ^ 7
 
@@ -194,7 +193,7 @@ tail = snd . unconsUnsafe
 
 -- | \(\mathcal{O}(n)\) Returns the length of the 'BitString'.
 length :: BitString -> Int64
-length Empty = 0
+length Empty             = 0
 length (BitString _ l t) = fromIntegral l + 8 * BL.length t
 
 -- | \(\mathcal{O}(1)\) Returns the head and tail of a 'BitString',
@@ -302,7 +301,7 @@ toByteString bs                = toByteString $ 0 `cons` bs
 -- | \(\mathcal{O}(1)\) similar to 'toByteString', but also returns the
 -- number of leading zeros.
 toByteStringWithPadding :: BitString -> (Word8, ByteString)
-toByteStringWithPadding Empty = (0, BL.empty)
+toByteStringWithPadding Empty                = (0, BL.empty)
 toByteStringWithPadding bs@(BitString _ l _) = (8 - l, toByteString bs)
 
 -- | \(\mathcal{O}(1)\) similar to 'toByteStringWithPadding',
@@ -317,8 +316,8 @@ toByteStringPadded = uncurry BL.cons . toByteStringWithPadding
 -- | \(\mathcal{O}(n)\) converts a 'BitString' into a list of 'Bit's.
 unpack :: BitString -> [Word8]
 unpack bs = case uncons bs of
-    Nothing      -> []
-    Just (h, t)  -> h : unpack t
+    Nothing     -> []
+    Just (h, t) -> h : unpack t
 
 -- | \(\mathcal{O}(n)\) converts a 'BitString' into a list of 'Bool's.
 unpackB :: BitString -> [Bool]
@@ -333,14 +332,14 @@ toNumber = P.foldl (\n b -> n * 2 + fromIntegral b) 0 . unpack
 drop :: Int64 -> BitString -> BitString
 drop 0 bs = bs
 drop n bs = case uncons bs of
-    Nothing      -> empty
-    Just (_, t)  -> drop (n - 1) t
+    Nothing     -> empty
+    Just (_, t) -> drop (n - 1) t
 
 dropEnd :: Int64 -> BitString -> BitString
 dropEnd 0 bs = bs
 dropEnd n bs = case unsnoc bs of
-    Nothing      -> empty
-    Just (t, _)  -> dropEnd (n - 1) t
+    Nothing     -> empty
+    Just (t, _) -> dropEnd (n - 1) t
 
 -- | \(\mathcal{O}(n)\) returns the prefix of 'BitString' of length \(n\)
 -- or the 'BitString' itself if \(n\) is greater than the length of the
@@ -366,7 +365,7 @@ append (BitString h1 l1 t1) (BitString h2 8 t2) =
 append a b = P.foldr cons b $ unpack a
 
 mapBytes :: (Word8 -> Word8) -> BitString -> BitString
-mapBytes _ Empty = Empty
+mapBytes _ Empty             = Empty
 mapBytes f (BitString h l t) = BitString (f h) l $ BL.map f t
 
 packZipWith :: (Bool -> Bool -> Bool) -> BitString -> BitString -> BitString
