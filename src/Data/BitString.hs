@@ -96,10 +96,10 @@ instance IsList BitString where
 -- lengths are the same.
 instance Bits BitString where
   -- This part could use a little bit of structure
-  (.&.) = packZipWith (.&.)
-  (.|.) = packZipWith (.|.)
+  (.&.) = packZipWithBytes (.&.)
+  (.|.) = packZipWithBytes (.|.)
   xor = packZipWith xor
-  complement = map not
+  complement = mapBytes complement
   shift bs x
       | signum x == 1 = append (drop n bs)
           $ const0 n
@@ -365,10 +365,9 @@ append (BitString h1 l1 t1) (BitString h2 8 t2) =
     BitString h1 l1 $ BL.append t1 $ h2 `BL.cons` t2
 append a b = P.foldr cons b $ unpack a
 
-map :: (Bool -> Bool) -> BitString -> BitString
-map f bs = case unconsB bs of
-    Nothing     -> empty
-    Just (h, t) -> f h `consB` map f t
+mapBytes :: (Word8 -> Word8) -> BitString -> BitString
+mapBytes _ Empty = Empty
+mapBytes f (BitString h l t) = BitString (f h) l $ BL.map f t
 
 packZipWith :: (Bool -> Bool -> Bool) -> BitString -> BitString -> BitString
 packZipWith f bs1@(BitString h1 l1 t1) bs2@(BitString h2 l2 t2) =
@@ -377,6 +376,14 @@ packZipWith f bs1@(BitString h1 l1 t1) bs2@(BitString h2 l2 t2) =
     (b1, r1) = unconsUnsafeB bs1
     (b2, r2) = unconsUnsafeB bs2
 packZipWith _ _ _ = Empty
+
+packZipWithBytes :: (Word8 -> Word8 -> Word8)
+                 -> BitString
+                 -> BitString
+                 -> BitString
+packZipWithBytes f (BitString h1 l1 t1) (BitString h2 l2 t2) =
+    BitString (f h1 h2) (min l1 l2) $ BL.packZipWith f t1 t2
+packZipWithBytes _ _ _ = Empty
 
 foldr :: (Bool -> a -> a) -> a -> BitString -> a
 foldr _ x Empty = x
