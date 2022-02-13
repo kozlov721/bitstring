@@ -11,11 +11,13 @@ module Data.BitString
     , empty
     , singleton
     , fromByteString
+    , fromNumber
     , pack
     , packB
     , fromByteStringWithPadding
     , fromByteStringPadded
     , toByteString
+    , toNumber
     , unpack
     , unpackB
     , toByteStringWithPadding
@@ -24,6 +26,7 @@ module Data.BitString
     , append
     , splitAt
     , splitAtEnd
+    , length
     ) where
 
 import Prelude hiding
@@ -88,25 +91,41 @@ instance IsList BitString where
   fromList = pack
   toList   = unpack
 
+-- | Binary operators are correctly defined only for bitstrings whose
+-- lengths are the same.
 instance Bits BitString where
+  -- This part could use a little bit of structure
   (.&.) = packZipWith (.&.)
   (.|.) = packZipWith (.|.)
   xor = packZipWith xor
   complement = map not
-  shift bs n
-    | signum n == -1 = drop (fromIntegral n) bs
-    | otherwise = P.foldr cons bs $ replicate n 0
+  shift bs x
+      | signum x == 1 = append (drop n bs)
+          $ const0 n
+      | otherwise = append (const0 n)
+          $ dropEnd n bs
+    where
+      n = fromIntegral $ abs x
   rotate bs 0 = bs
-  rotate bs n
-    | signum n == -1 = (\(x, y) -> append y x) $ splitAt (fromIntegral n) bs
-    | otherwise = (\(x, y) -> append y x) $ splitAtEnd (fromIntegral n) bs
-  bitSize = fromIntegral . length
-  bitSizeMaybe = Just . fromIntegral . length
+  rotate bs x
+      | signum x == 1 = (\(x, y) -> append y x) $ splitAt n bs
+      | otherwise = (\(x, y) -> append y x) $ splitAtEnd n bs
+    where
+      n = fromIntegral $ abs x
+  bitSize = const maxBound
+  bitSizeMaybe = const Nothing
   isSigned = const False
   testBit bs n = isNothing $ findSubstring (singleton 0) $ bs .&. bit n
   bit n = cons 1 $ pack $ replicate (n - 1) 0
   popCount = Data.BitString.foldr (\x y -> y + fromEnum x) 0
 
+
+-- TODO: this can be done faster
+const1 :: Int64 -> BitString
+const1 n = pack $ replicate (fromIntegral n) 1
+
+const0 :: Int64 -> BitString
+const0 n = pack $ replicate (fromIntegral n) 0
 
 -- TODO: better algorithm (kmp probably)
 findSubstring :: BitString   -- ^ The string to search for
@@ -123,8 +142,6 @@ findSubstring p w
     lookup p w
         | head p == head w = lookup (tail p) (tail w)
         | otherwise = False
-
-
 
 -- | \(\mathcal{O}(1)\) 'cons' is analogous to '(Prelude.:)' for lists.
 cons :: Bit -> BitString -> BitString
@@ -166,7 +183,7 @@ tail = snd . unconsUnsafe
 -- | \(\mathcal{O}(n)\) Returns the length of the 'BitString'.
 length :: BitString -> Int64
 length Empty = 0
-length (BitString _ l t) = fromIntegral l + BL.length t
+length (BitString _ l t) = fromIntegral l + 8 * BL.length t
 
 -- | \(\mathcal{O}(1)\) Returns the head and tail of a 'BitString',
 -- or 'Nothing' if empty.
@@ -334,7 +351,7 @@ takeEnd n bs = case unsnoc bs of
 append :: BitString -> BitString -> BitString
 append (BitString h1 l1 t1) (BitString h2 8 t2) =
     BitString h1 l1 $ BL.append t1 $ h2 `BL.cons` t2
-append a b = P.foldr cons b (reverse (unpack a))
+append a b = P.foldr cons b $ unpack a
 
 map :: (Bool -> Bool) -> BitString -> BitString
 map f bs = case unconsB bs of
@@ -359,4 +376,4 @@ splitAt :: Int64 -> BitString -> (BitString , BitString)
 splitAt n bs = (take n bs, drop n bs)
 
 splitAtEnd :: Int64 -> BitString -> (BitString, BitString)
-splitAtEnd n bs = (takeEnd n bs, dropEnd n bs)
+splitAtEnd n bs = (dropEnd n bs, takeEnd n bs)
