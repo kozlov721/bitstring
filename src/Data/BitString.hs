@@ -116,21 +116,15 @@ instance Bits BitString where
   bitSize = const maxBound
   bitSizeMaybe = const Nothing
   isSigned = const False
-  testBit bs n = isNothing $ findSubstring (singleton 0) $ bs .&. bit n
-  bit n = cons 1 $ pack $ replicate (n - 1) 0
+  testBit bs n = (bs .&. bit n) /= pack (repeat 0)
+  bit n = cons 1 $ pack $ replicate n 0
   popCount = Data.BitString.foldr (\x y -> y + fromEnum x) 0
 
 instance Show BitString where
   show bs = show (unpack bs)
 
 instance Read BitString where
-
   readPrec = parens $ prec 10 $ pack <$> readPrec
-
-
-
-
-
 
 -- TODO: this can be done faster
 const1 :: Int64 -> BitString
