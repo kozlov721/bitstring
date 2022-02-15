@@ -184,7 +184,7 @@ instance Bits BitString where
   bitSize = const maxBound
   bitSizeMaybe = const Nothing
   isSigned = const False
-  testBit bs n = lookup (reverse bs) (fromIntegral n) == Just 1
+  testBit bs n = (reverse bs) !? (fromIntegral n) == Just 1
   bit n = cons 1 $ replicate (fromIntegral n) False
   popCount = foldr (\x y -> y + fromEnum x) 0
 
