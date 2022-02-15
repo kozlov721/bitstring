@@ -81,6 +81,14 @@ bitsTests = concat
         ~=? BS.unpack (BS.pack (toBinaryPad b) `rotate` n)
     | b <- [0..50] :: [Word32]
     , n <- [-10..10] :: [Int]
+    ] ++
+    [ "testBit-true" ~: show n ~: testBit (bit n :: BitString) n ~=? True
+    | n <- [0..100] :: [Int]
+    ] ++
+    [ "testBit-false" ~: show n ++ " " ++ show m
+        ~: testBit (bit n :: BitString) m ~=? False
+    | n <- [0..50] :: [Int]
+    , m <- [n+1..50] :: [Int]
     ]
 
 bitsCycle :: [Word8] -> [Word8]

@@ -73,6 +73,8 @@ module Data.BitString
     , zipWith
     , packZipWith
       -- * Indexing
+    , (!)
+    , (!?)
     , findSubstring
       -- * Files
     , readFile
@@ -105,6 +107,8 @@ import Prelude hiding
     , readFile
     , appendFile
     , writeFile
+    , reverse
+    , lookup
     )
 
 import Control.Applicative.Tools ((<.>))
@@ -180,7 +184,7 @@ instance Bits BitString where
   bitSize = const maxBound
   bitSizeMaybe = const Nothing
   isSigned = const False
-  testBit bs n = (bs .&. bit n) /= pack (repeat 0)
+  testBit bs n = lookup (reverse bs) (fromIntegral n) == Just 1
   bit n = cons 1 $ replicate (fromIntegral n) False
   popCount = foldr (\x y -> y + fromEnum x) 0
 
@@ -194,6 +198,25 @@ instance Read BitString where
 -- with the given value.
 replicate :: Int64 -> Bool -> BitString
 replicate n b = packB $ P.replicate (fromIntegral n) b
+
+-- TODO: Better algorithm
+-- \(\mathcal{O}(n)\) Reverses elements in a 'BitString'.
+reverse :: BitString -> BitString
+reverse = pack . P.reverse . unpack
+
+infixl 9 !, !?
+
+-- \(\mathcal{O}(n)\) Safe version of '(!)'.
+(!?) :: BitString -> Int64 -> Maybe Bit
+(!?) Empty _ = Nothing
+(!?) bs 0    = Just $ head bs
+(!?) bs n    = (tail bs) !? (n - 1)
+
+-- | \(\mathcal{O}(n)\) Gets nth bit from a 'BitString'. Throws an error
+-- in case of out-of-range index.
+(!) :: BitString -> Int64 -> Bit
+(!) Empty _ = errorEmptyList "(!)"
+(!) bs n = fromJust $ bs !? n
 
 -- TODO: better algorithm (kmp probably)
 -- | \(\mathcal{O}(n \cdot m)\) Locates a substring in a 'BitString'.
@@ -241,9 +264,8 @@ snocB bs b = snoc bs $ fromIntegral $ fromEnum b
 -- | \(\mathcal{O}(1)\) Returns the first 'Bit' from a 'BitString'.
 -- Throws an error in case of an empty 'BitString'.
 head :: BitString -> Bit
-head Empty             = errorEmptyList "head"
-head (BitString _ 0 t) = BL.head t `div` 2 ^ 7
-head (BitString h _ _) = h `div` 2 ^ 7
+head Empty = errorEmptyList "head"
+head bs    = fst $ unconsUnsafe bs
 {-# INLINE head #-}
 
 -- | \(\mathcal{O}(1)\) Same as 'head', but returns boolean.
@@ -379,7 +401,7 @@ packB = P.foldr consB empty
 -- | Converts an instance of 'Integral' to a 'BitString'. Be aware that no
 -- padding is added for fixe sized integrals.
 fromNumber :: (Integral a) => a -> BitString
-fromNumber = pack . reverse . go
+fromNumber = pack . P.reverse . go
   where
     go :: (Integral a) => a -> [Word8]
     go 0 = []
