@@ -236,6 +236,9 @@ findSubstring p w
         | head p == head w = lookup (tail p) (tail w)
         | otherwise = False
 
+infixr 5 `cons`, `consB`
+infixl 5 `snoc`, `snocB`
+
 -- | \(\mathcal{O}(1)\) 'cons' is analogous to '(Prelude.:)' for lists.
 cons :: Bit -> BitString -> BitString
 cons b Empty             = BitString b 1 BL.empty
