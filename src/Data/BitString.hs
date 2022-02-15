@@ -1,6 +1,24 @@
 {-# LANGUAGE CPP          #-}
 {-# LANGUAGE TypeFamilies #-}
 
+-- |
+-- Module      : Data.BitString
+-- Copyright   : (c) Martin Kozlovsky 2022
+-- License     : BSD-style
+--
+-- Stability   : unstable
+-- Portability : portable
+--
+-- A simple and convenient implementation of bit vectors using a wrapper
+-- around 'Data.ByteString.Lazy'.
+--
+-- This module is intended to be imported @qualified@, to avoid name
+-- clashes with "Prelude" functions.  eg.
+--
+-- > import qualified Data.BitString as BS
+--
+--
+
 module Data.BitString
     ( -- * @BitString@
       BitString
