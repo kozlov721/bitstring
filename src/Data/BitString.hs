@@ -162,7 +162,7 @@ instance Bits BitString where
   -- TODO: This part could use a little bit of structure
   (.&.) = packZipWithBytes (.&.)
   (.|.) = packZipWithBytes (.|.)
-  xor = packZipWith xor
+  xor = packZipWithBytes xor
   complement = mapBytes complement
   shift bs x
       | signum x == 1 = append (drop n bs)
@@ -181,7 +181,7 @@ instance Bits BitString where
   bitSizeMaybe = const Nothing
   isSigned = const False
   testBit bs n = (bs .&. bit n) /= pack (repeat 0)
-  bit n = cons 1 $ pack $ P.replicate n 0
+  bit n = cons 1 $ replicate (fromIntegral n) False
   popCount = foldr (\x y -> y + fromEnum x) 0
 
 instance Show BitString where
