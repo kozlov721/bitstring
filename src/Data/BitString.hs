@@ -206,7 +206,7 @@ reverse = pack . P.reverse . unpack
 
 infixl 9 !, !?
 
--- \(\mathcal{O}(n)\) Safe version of '(!)'.
+-- | \(\mathcal{O}(n)\) Safe version of '(!)'.
 (!?) :: BitString -> Int64 -> Maybe Bit
 (!?) Empty _ = Nothing
 (!?) bs 0    = Just $ head bs
