@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP          #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE BangPatterns #-}
 
 -- |
 -- Module      : Data.BitString
@@ -37,6 +38,7 @@ module Data.BitString
     , unsnocB
     , unsnocUnsafeB
     , append
+    , concat
     , head
     , headB
     , tail
@@ -76,6 +78,11 @@ module Data.BitString
     , (!)
     , (!?)
     , findSubstring
+      -- * Reducing 'BitString's
+    , foldr
+    , foldr'
+    , foldl
+    , foldl'
       -- * Files
     , readFile
     , writeFile
@@ -83,10 +90,13 @@ module Data.BitString
       -- * Legacy compatibility
     , bitString
     , bitStringLazy
+    , unsafeBitString'
     , Data.BitString.toList
     , to01List
     , Data.BitString.fromList
     , from01List
+    , realizeBitString
+    , realizeBitStringLazy
     ) where
 
 import Prelude hiding
@@ -109,6 +119,11 @@ import Prelude hiding
     , writeFile
     , reverse
     , lookup
+    , concat
+    , foldr
+    , foldr'
+    , foldl
+    , foldl'
     )
 
 import Control.Applicative.Tools ((<.>))
@@ -253,7 +268,7 @@ consB :: Bool -> BitString -> BitString
 consB b bs = fromIntegral (fromEnum b) `cons` bs
 {-# INLINE consB #-}
 
--- | \(\mathcal{O}(n)\) Similar to 'cons', but append the 'Bit' at the
+-- | \(\mathcal{O}(n)\) Similar to 'cons', but appends the 'Bit' at the
 -- end of the 'BitString'.
 snoc :: BitString -> Bit -> BitString
 snoc bs b = pack $ unpack bs ++ [b] -- TODO: better implementation
@@ -493,6 +508,10 @@ append (BitString h1 l1 t1) (BitString h2 8 t2) =
 append a b = P.foldr cons b $ unpack a
 {-# INLINE append #-}
 
+-- | \(\mathcal{O}(n \cdot m)\) Concatenates a list of 'BitString's.
+concat :: [BitString] -> BitString
+concat = P.foldr append Empty
+
 mapBytes :: (Word8 -> Word8) -> BitString -> BitString
 mapBytes _ Empty             = Empty
 mapBytes f (BitString h l t) = BitString (f h) l $ BL.map f t
@@ -514,7 +533,7 @@ zipB _ Empty = []
 zipB x y = (headB x, headB y) : zipB (tail x) (tail y)
 
 -- I don't see much use, but why not.
--- | \(\mathcal{O}(\min(n, m))\) Equivalent of 'Prelude.zipWith'
+-- | \(\mathcal{O}(\min(n, m))\) Equivalent to 'Prelude' 'Prelude.zipWith'
 -- for 'BitString's.
 zipWith :: (Bool -> Bool -> a) -> BitString -> BitString -> [a]
 zipWith _ Empty _ = []
@@ -537,12 +556,25 @@ packZipWithBytes f (BitString h1 l1 t1) (BitString h2 l2 t2) =
     BitString (f h1 h2) (min l1 l2) $ BL.packZipWith f t1 t2
 packZipWithBytes _ _ _ = Empty
 
--- \(\mathcal{O}(n)\) Equivalent of 'Prelude.foldr'.
+-- | \(\mathcal{O}(n)\) Equivalent to 'Prelude' 'Prelude.foldr'.
 foldr :: (Bool -> a -> a) -> a -> BitString -> a
 foldr _ x Empty = x
-foldr f x bs = f h $ foldr f x t
-  where
-    (h, t) = unconsUnsafeB bs
+foldr f x bs = f (headB bs) $ foldr f x (tail bs)
+
+-- | \(\mathcal{O}(n)\) Like 'foldr', but strict in the accumulator.
+foldr' :: (Bool -> a -> a) -> a -> BitString -> a
+foldr' _ !x Empty = x
+foldr' f !x bs = f (headB bs) $ foldr' f x (tail bs)
+
+-- | \(\mathcal{O}(n)\) Equivalent to 'Prelude' 'Prelude.foldl'.
+foldl :: (a -> Bool -> a) -> a -> BitString -> a
+foldl _ x Empty = x
+foldl f x bs = f (foldl f x (tail bs)) $ headB bs
+
+-- | \(\mathcal{O}(n)\) Like 'foldl', but strict in the accumulator.
+foldl' :: (a -> Bool -> a) -> a -> BitString -> a
+foldl' _ x! Empty = x
+foldl' f x! bs = f (foldl' f x (tail bs)) $ headB bs
 
 -- | \(\mathcal{O}(n)\) @'splitAt' n xs@ is equivalent
 -- to @('take' n xs, 'drop' n xs)@.
@@ -606,3 +638,22 @@ from01List :: [Word8] -> BitString
 from01List = pack
 {-# INLINE from01List #-}
 
+-- | \(\mathcal{O}(n)\) Creates a 'BitString' from a portion of
+-- 'ByteString'. /Warning: No boundary checks are performed!/
+unsafeBitString' :: Int64 -- ^ offset
+                 -> Int64 -- ^ length
+                 -> ByteString -- ^ source
+                 -> BitString
+unsafeBitString' o l bs = fromByteString $ BL.take l $ BL.drop 0 bs
+
+{-# DEPRECATED realizeBitString "Use toByteStringStrict instead" #-}
+-- | Alias to 'toByteStringStrict'.
+realizeBitString :: BitString -> BS.ByteString
+realizeBitString = toByteStringStrict
+{-# INLINE realizeBitString #-}
+
+{-# DEPRECATED realizeBitStringLazy "Use toByteString instead" #-}
+-- | Alias to 'toByteString'.
+realizeBitStringLazy :: BitString -> ByteString
+realizeBitStringLazy = toByteString
+{-# INLINE realizeBitStringLazy #-}
