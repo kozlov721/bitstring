@@ -74,6 +74,10 @@ module Data.BitString
     , packZipWith
       -- * Indexing
     , findSubstring
+      -- * Files
+    , readFile
+    , writeFile
+    , appendFile
       -- * Legacy compatibility
     , bitString
     , bitStringLazy
@@ -98,6 +102,9 @@ import Prelude hiding
     , zip
     , zipWith
     , replicate
+    , readFile
+    , appendFile
+    , writeFile
     )
 
 import Control.Applicative.Tools ((<.>))
@@ -523,6 +530,18 @@ splitAt n bs = (take n bs, drop n bs)
 splitAtEnd :: Int64 -> BitString -> (BitString, BitString)
 splitAtEnd n bs = (dropEnd n bs, takeEnd n bs)
 {-# INLINE splitAtEnd #-}
+
+-- | Read a file into a 'BitString'.
+readFile :: FilePath -> IO BitString
+readFile = fromByteString <.> BL.readFile
+
+-- | Writes a 'BitString' to a file.
+writeFile :: FilePath -> BitString -> IO ()
+writeFile p = BL.writeFile p . toByteString
+
+-- | Appends a 'BitString' to a file.
+appendFile :: FilePath -> BitString -> IO ()
+appendFile p = BL.appendFile p . toByteString
 
 -- Legacy compatibility
 
