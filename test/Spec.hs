@@ -15,6 +15,10 @@ simpleTests =
     [ "cons-uncons" ~: show bits ~: bits ~=? bitsCycle bits
     | bits <- [toBinary n | n <- [0..100]]
     ] ++
+    [ "inner-consistency" ~: show bs ~: bs
+        ~=? BS.fromByteString (BS.toByteString (BS.tail (1 `BS.cons` bs)))
+    | bs <- [BS.pack $ toBinaryPad n | n <- [0..100]]
+    ] ++
     [ "bool-cons-uncons" ~: show bits ~: bits ~=? bitsCycleB bits
     | bits <- [map (/=0) $ toBinary n | n <- [0..100]]
     ] ++
@@ -26,6 +30,10 @@ simpleTests =
     ] ++
     [ "from-toNumber" ~: show n ~: n ~=? (BS.toNumber . BS.fromNumber) n
     | n <- [0..100]
+    ] ++
+    [ "from-toByteString" ~: show bs
+        ~: bs ~=? (uncurry BS.fromByteStringWithPadding . BS.toByteStringWithPadding) bs
+    | bs <- [BS.fromNumber n | n <- [0..100]]
     ] ++
     [ "eq" ~: show n ~: BS.fromNumber n ~=? BS.fromNumber n
     | n <- [0..20]
@@ -53,6 +61,12 @@ simpleTests =
     ] ++
     [ "monoid-left" ~: show bs ~: mempty <> bs ~=? bs
     | bs <- [BS.fromNumber n | n <- [0..10]]
+    ] ++
+    [ "reverse" ~: show bs ~: bs ~=? (BS.reverse . BS.reverse) bs
+    | bs <- [BS.fromNumber n | n <- [0..100]]
+    ] ++
+    [ "replicate" ~: show n ~: n ~=? BS.length (BS.replicate n False)
+    | n <- [0..100]
     ]
 
 bitsTests = concat
