@@ -47,6 +47,7 @@ module Data.BitString
     , lastB
     , null
     , length
+    , reverse
       -- * Construction and deconstruction of 'BitString's
     , empty
     , singleton
@@ -56,6 +57,7 @@ module Data.BitString
     , fromNumber
     , pack
     , packB
+    , replicate
     , toByteString
     , toByteStringStrict
     , toByteStringWithPadding
@@ -254,11 +256,14 @@ infixl 5 `snoc`, `snocB`
 
 -- | \(\mathcal{O}(1)\) 'cons' is analogous to '(Prelude.:)' for lists.
 cons :: Bit -> BitString -> BitString
-cons b (BitString h 8 t) = cons b $ BitString 0 0 $ h `BL.cons` t
+cons b (BitString h l t)
+    | l == 7    = BitString 0 0 (push h b 7 `BL.cons` t)
+    | otherwise = BitString (push h b l) (l + 1) t
+  where
 #ifdef BIGENDIAN
-cons b (BitString h l t) = BitString (h * 2 + b) (l + 1) t
+    push h b _ = h * 2 + b
 #else
-cons b (BitString h l t) = BitString (h + b * 2 ^ l) (l + 1) t
+    push h b l = h + b * 2 ^ l
 #endif
 {-# INLINE cons #-}
 
