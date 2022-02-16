@@ -1,6 +1,6 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP          #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE BangPatterns #-}
 
 -- |
 -- Module      : Data.BitString
@@ -100,30 +100,29 @@ module Data.BitString
     ) where
 
 import Prelude hiding
-    ( drop
+    ( appendFile
+    , concat
+    , drop
+    , foldl
+    , foldl'
     , foldr
+    , foldr'
     , head
     , init
     , last
     , length
+    , lookup
     , map
     , null
+    , readFile
+    , replicate
+    , reverse
     , splitAt
     , tail
     , take
+    , writeFile
     , zip
     , zipWith
-    , replicate
-    , readFile
-    , appendFile
-    , writeFile
-    , reverse
-    , lookup
-    , concat
-    , foldr
-    , foldr'
-    , foldl
-    , foldl'
     )
 
 import Control.Applicative.Tools ((<.>))
@@ -134,6 +133,7 @@ import Data.Maybe                (fromJust, isNothing)
 import Data.Semigroup            ((<>))
 import Data.Word                 (Word8)
 import GHC.Exts                  (IsList (..))
+import GHC.List                  (errorEmptyList)
 import Text.Read
 
 import qualified Data.Bifunctor                as Bi
@@ -141,7 +141,6 @@ import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.ByteString.Lazy.Internal as BLI
 import qualified Prelude                       as P
-import GHC.List (errorEmptyList)
 
 
 #define EMPTY (BitString 0 0 BLI.Empty)
@@ -222,7 +221,7 @@ infixl 9 !, !?
 
 -- | \(\mathcal{O}(n)\) Safe version of '(!)'.
 (!?) :: BitString -> Int64 -> Maybe Bit
-(!?) (BitString 0 0 BLI.Empty) _ = Nothing
+(!?) EMPTY _ = Nothing
 (!?) bs 0    = Just $ head bs
 (!?) bs n    = tail bs !? (n - 1)
 
@@ -230,7 +229,7 @@ infixl 9 !, !?
 -- in case of out-of-range index.
 (!) :: BitString -> Int64 -> Bit
 (!) EMPTY _ = errorEmptyList "(!)"
-(!) bs n = fromJust $ bs !? n
+(!) bs n    = fromJust $ bs !? n
 
 -- TODO: better algorithm (kmp probably)
 -- | \(\mathcal{O}(n \cdot m)\) Locates a substring in a 'BitString'.
@@ -534,14 +533,14 @@ mapBytes f (BitString h l t) = BitString (f h) l $ BL.map f t
 zip :: BitString -> BitString -> [(Word8, Word8)]
 zip EMPTY _ = []
 zip _ EMPTY = []
-zip x y = (head x, head y) : zip (tail x) (tail y)
+zip x y     = (head x, head y) : zip (tail x) (tail y)
 
 -- | \(\mathcal{O}(\min(n, m))\) Same as 'zip', but returns a list of pairs
 -- of 'Bool's.
 zipB :: BitString -> BitString -> [(Bool, Bool)]
 zipB EMPTY _ = []
 zipB _ EMPTY = []
-zipB x y = (headB x, headB y) : zipB (tail x) (tail y)
+zipB x y     = (headB x, headB y) : zipB (tail x) (tail y)
 
 -- I don't see much use, but why not.
 -- | \(\mathcal{O}(\min(n, m))\) Equivalent to 'Prelude' 'Prelude.zipWith'
@@ -549,7 +548,7 @@ zipB x y = (headB x, headB y) : zipB (tail x) (tail y)
 zipWith :: (Bool -> Bool -> a) -> BitString -> BitString -> [a]
 zipWith _ EMPTY _ = []
 zipWith _ _ EMPTY = []
-zipWith f x y = f (headB x) (headB y) : zipWith f (tail x) (tail y)
+zipWith f x y     = f (headB x) (headB y) : zipWith f (tail x) (tail y)
 
 -- | \(\mathcal{O}(\min(n, m))\) Generalized version of 'zipWith'.
 -- Takes two 'BitStrings' and a binary function on 'Bool's and returns new
@@ -571,22 +570,22 @@ packZipWithBytes f (BitString h1 l1 t1) (BitString h2 l2 t2) =
 -- | \(\mathcal{O}(n)\) Equivalent to 'Prelude' 'Prelude.foldr'.
 foldr :: (Bool -> a -> a) -> a -> BitString -> a
 foldr _ x EMPTY = x
-foldr f x bs = f (headB bs) $ foldr f x (tail bs)
+foldr f x bs    = f (headB bs) $ foldr f x (tail bs)
 
 -- | \(\mathcal{O}(n)\) Like 'foldr', but strict in the accumulator.
 foldr' :: (Bool -> a -> a) -> a -> BitString -> a
 foldr' _ !x (BitString 0 0 BLI.Empty) = x
-foldr' f !x bs = f (headB bs) $ foldr' f x (tail bs)
+foldr' f !x bs                        = f (headB bs) $ foldr' f x (tail bs)
 
 -- | \(\mathcal{O}(n)\) Equivalent to 'Prelude' 'Prelude.foldl'.
 foldl :: (a -> Bool -> a) -> a -> BitString -> a
 foldl _ x EMPTY = x
-foldl f x bs = f (foldl f x (tail bs)) $ headB bs
+foldl f x bs    = f (foldl f x (tail bs)) $ headB bs
 
 -- | \(\mathcal{O}(n)\) Like 'foldl', but strict in the accumulator.
 foldl' :: (a -> Bool -> a) -> a -> BitString -> a
 foldl' _ !x (BitString 0 0 BLI.Empty) = x
-foldl' f !x bs = f (foldl' f x (tail bs)) $ headB bs
+foldl' f !x bs                        = f (foldl' f x (tail bs)) $ headB bs
 
 -- | \(\mathcal{O}(n)\) @'splitAt' n xs@ is equivalent
 -- to @('take' n xs, 'drop' n xs)@.
