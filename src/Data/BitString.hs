@@ -282,7 +282,7 @@ cons b (BitString h l t)
 #ifdef BIGENDIAN
     push h b _ = h * 2 + b
 #else
-    push h b l = h + b * 2 ^ l
+    push h b l = h `div` 2 + b * 2 ^ 7
 #endif
 {-# INLINE cons #-}
 
@@ -339,13 +339,9 @@ uncons (BitString _ 0 t) = do
     uncons $ BitString h 8 t
 uncons (BitString h l t) = Just
 #ifdef BIGENDIAN
-    ( h `mod` 2
-    , BitString (h `div` 2) (l - 1) t
-    )
+    ( h `mod` 2, BitString (h `div` 2) (l - 1) t)
 #else
-    ( h `div` 2 ^ (l - 1) `mod` 2
-    , BitString (h .&. complement (2 ^ (l - 1))) (l - 1) t
-    )
+    ( h `div` 2 ^ 7, BitString (h * 2) (l - 1) t)
 #endif
 {-# INLINE uncons #-}
 
