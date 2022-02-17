@@ -1,6 +1,8 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE CPP          #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE BangPatterns    #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE ViewPatterns    #-}
 
 -- |
 -- Module      : Data.BitString
@@ -27,6 +29,7 @@ module Data.BitString
       -- * Basic interface
     , cons
     , consB
+    , pattern (:::)
     , uncons
     , unconsUnsafe
     , unconsB
@@ -50,6 +53,7 @@ module Data.BitString
     , reverse
       -- * Construction and deconstruction of 'BitString's
     , empty
+    , pattern Empty
     , singleton
     , fromByteString
     , fromByteStringStrict
@@ -145,8 +149,6 @@ import qualified Data.ByteString.Lazy.Internal as BLI
 import qualified Prelude                       as P
 
 
-#define EMPTY (BitString 0 0 BLI.Empty)
-
 -- | Alias for 'Word8'. /Be cautious to only use/
 -- /\(0\) and \(1\) as values, otherwise the behavior is/
 -- /undefined./
@@ -219,18 +221,30 @@ replicate n b = packB $ P.replicate (fromIntegral n) b
 reverse :: BitString -> BitString
 reverse = pack . P.reverse . unpack
 
-infixl 9 !, !?
+{-# Complete Empty, (:::) #-}
+-- | Pattern synonym for an empty 'BitString'.
+pattern Empty :: BitString
+pattern Empty = BitString 0 0 BLI.Empty
+
+-- | \(\mathcal{O}(1)\) Pattern synonym for 'cons'.
+infixr 5 :::
+pattern (:::) :: Word8 -> BitString -> BitString
+pattern b:::bs <- (uncons -> Just (b, bs))
+  where b:::bs = cons b bs
+
 
 -- | \(\mathcal{O}(n)\) Safe version of '(!)'.
+infixl 9 !?
 (!?) :: BitString -> Int64 -> Maybe Bit
-(!?) EMPTY _ = Nothing
+(!?) Empty _ = Nothing
 (!?) bs 0    = Just $ head bs
 (!?) bs n    = tail bs !? (n - 1)
 
 -- | \(\mathcal{O}(n)\) Gets nth bit from a 'BitString'. Throws an error
 -- in case of out-of-range index.
+infixl 9 !
 (!) :: BitString -> Int64 -> Bit
-(!) EMPTY _ = errorEmptyList "(!)"
+(!) Empty _ = errorEmptyList "(!)"
 (!) bs n    = fromJust $ bs !? n
 
 -- TODO: better algorithm (kmp probably)
@@ -239,14 +253,14 @@ infixl 9 !, !?
 findSubstring :: BitString   -- ^ The string to search for
               -> BitString   -- ^ The string to search in
               -> Maybe Int64 -- ^ The index of the first substring, if exists
-findSubstring _ EMPTY = Nothing
+findSubstring _ Empty = Nothing
 findSubstring p w
     | lookup p w = Just 0
     | otherwise = (+1) <$> findSubstring p (tail w)
   where
     lookup :: BitString -> BitString -> Bool
-    lookup _ EMPTY = False
-    lookup EMPTY _ = True
+    lookup _ Empty = False
+    lookup Empty _ = True
     lookup p w
         | head p == head w = lookup (tail p) (tail w)
         | otherwise = False
@@ -271,7 +285,7 @@ cons b (BitString h l t)
 -- In general safer than 'cons' as it eliminates possible
 -- mistakes with undefined values.
 consB :: Bool -> BitString -> BitString
-consB b bs = fromIntegral (fromEnum b) `cons` bs
+consB b bs = fromIntegral (fromEnum b) ::: bs
 {-# INLINE consB #-}
 
 -- | \(\mathcal{O}(n)\) Similar to 'cons', but appends the 'Bit' at the
@@ -288,8 +302,8 @@ snocB bs b = snoc bs $ fromIntegral $ fromEnum b
 -- | \(\mathcal{O}(1)\) Returns the first 'Bit' from a 'BitString'.
 -- Throws an error in case of an empty 'BitString'.
 head :: BitString -> Bit
-head EMPTY = errorEmptyList "head"
-head bs    = fst $ unconsUnsafe bs
+head Empty   = errorEmptyList "head"
+head (b:::_) = b
 {-# INLINE head #-}
 
 -- | \(\mathcal{O}(1)\) Same as 'head', but returns boolean.
@@ -300,19 +314,20 @@ headB = (/=0) . head
 -- | \(\mathcal{O}(1)\) Returns bits after the head of 'BitString'.
 -- An exception is thrown in case of an empty 'BitString'.
 tail :: BitString -> BitString
-tail = snd . unconsUnsafe
+tail Empty    = errorEmptyList "tail"
+tail (_:::bs) = bs
 {-# INLINE tail #-}
 
 -- | \(\mathcal{O}(n)\) Returns the length of the 'BitString'.
 length :: BitString -> Int64
-length EMPTY             = 0
+length Empty             = 0
 length (BitString _ l t) = fromIntegral l + 8 * BL.length t
 {-# INLINE length #-}
 
 -- | \(\mathcal{O}(1)\) Returns 'head' and 'tail' of a 'BitString',
 -- or 'Nothing' if empty.
 uncons :: BitString -> Maybe (Bit, BitString)
-uncons EMPTY = Nothing
+uncons Empty = Nothing
 uncons (BitString _ 0 t) = do
     (h, t) <- BL.uncons t
     uncons $ BitString h 8 t
@@ -336,7 +351,7 @@ unconsB = Bi.first (/=0) <.> uncons
 -- | \(\mathcal{O}(n)\) Returns 'init' and 'last' of a 'BitString',
 -- or 'Nothing' if empty.
 unsnoc :: BitString -> Maybe (BitString, Bit)
-unsnoc EMPTY = Nothing
+unsnoc Empty = Nothing
 unsnoc bs = Just (pack $ P.init bits, P.last bits)
   where
     bits = unpack bs
@@ -362,9 +377,8 @@ lastB = (/=0) . last
 -- | \(\mathcal{O}(1)\) unsafe version of 'uncons'.
 -- Throws an error in case of an empty 'BitString'.
 unconsUnsafe :: BitString -> (Bit, BitString)
-unconsUnsafe bs = case uncons bs of
-    Just x  -> x
-    Nothing -> errorEmptyList "unconsUnsafe"
+unconsUnsafe Empty    = errorEmptyList "unconsUnsafe"
+unconsUnsafe (b:::bs) = (b, bs)
 {-# INLINE unconsUnsafe #-}
 
 -- | \(\mathcal{O}(1)\) unsafe version of 'unconsB'.
@@ -395,12 +409,12 @@ null _                 = False
 
 -- | \(\mathcal{O}(1)\) constructs an empty 'BitString'.
 empty :: BitString
-empty = EMPTY
+empty = Empty
 {-# INLINE empty #-}
 
 -- | \(\mathcal{O}(1)\) converts one bit into a 'BitString'.
 singleton :: Bit -> BitString
-singleton = (`cons` empty)
+singleton = (:::empty)
 {-# INLINE singleton #-}
 
 -- | \(\mathcal{O}(1)\) converts a lazy 'ByteString' into a 'BitString'.
@@ -443,7 +457,7 @@ fromNumber = pack . P.reverse . go
 toByteString :: BitString -> ByteString
 toByteString (BitString h 0 t) = t
 toByteString (BitString h 8 t) = h `BL.cons` t
-toByteString bs                = toByteString $ 0 `cons` bs
+toByteString bs                = toByteString $ 0 ::: bs
 {-# INLINE toByteString #-}
 
 -- | \(\mathcal{O}(1)\) Converts a 'BitString' to a strict 'ByteString'.
@@ -455,15 +469,14 @@ toByteStringStrict = BL.toStrict . toByteString
 -- | \(\mathcal{O}(1)\) Similar to 'toByteString', but also returns the
 -- number of leading zeros.
 toByteStringWithPadding :: BitString -> (Word8, ByteString)
-toByteStringWithPadding EMPTY                = (0, BL.empty)
+toByteStringWithPadding Empty                = (0, BL.empty)
 toByteStringWithPadding bs@(BitString _ l _) = (8 - l, toByteString bs)
 {-# INLINE toByteStringWithPadding #-}
 
 -- | \(\mathcal{O}(n)\) Converts a 'BitString' into a list of 'Bit's.
 unpack :: BitString -> [Word8]
-unpack bs = case uncons bs of
-    Nothing     -> []
-    Just (h, t) -> h : unpack t
+unpack Empty    = []
+unpack (b:::bs) = b : unpack bs
 {-# INLINE unpack #-}
 
 -- | \(\mathcal{O}(n)\) Converts a 'BitString' into a list of 'Bool's.
@@ -480,10 +493,9 @@ toNumber = P.foldl (\n b -> n * 2 + fromIntegral b) 0 . unpack
 -- the first \(n\) elements are dropped, or 'empty' if \(n\) is greater
 -- than the length of the 'BitString'.
 drop :: Int64 -> BitString -> BitString
-drop 0 bs = bs
-drop n bs = case uncons bs of
-    Nothing     -> empty
-    Just (_, t) -> drop (n - 1) t
+drop 0 bs       = bs
+drop _ Empty    = Empty
+drop n (_:::bs) = drop (n - 1) bs
 
 -- TODO: Better algorithm, make use of ByteString
 -- | \(\mathcal{O}(n \cdot m)\) Drops \(n\) elemnets
@@ -498,10 +510,13 @@ dropEnd n bs = case unsnoc bs of
 -- or the 'BitString' itself if \(n\) is greater than the length of the
 -- 'BitString'.
 take :: Int64 -> BitString -> BitString
-take 0 bs = empty
-take n bs = case uncons bs of
-    Nothing     -> bs
-    Just (h, t) -> h `cons` take (n - 1) t
+take _ Empty    = empty
+take 0 bs       = empty
+take n (b:::bs) = b ::: take (n - 1) bs
+-- take 0 bs = empty
+-- take n bs = case uncons bs of
+    -- Nothing     -> bs
+    -- Just (h, t) -> h ::: take (n - 1) t
 
 -- TODO: Better algorithm, make use of ByteString
 -- | \(\mathcal{O}(n \cdot m)\) Takes \(n\) elemnets
@@ -516,8 +531,8 @@ takeEnd n bs = case unsnoc bs of
 -- In general not very efficient if length of the latter 'BitString' is not
 -- divisible by 8.
 append :: BitString -> BitString -> BitString
-append EMPTY x = x
-append x EMPTY = x
+append Empty x = x
+append x Empty = x
 append (BitString h1 l1 t1) (BitString h2 8 t2) =
     BitString h1 l1 $ BL.append t1 $ h2 `BL.cons` t2
 append a b = P.foldr cons b $ unpack a
@@ -528,7 +543,7 @@ concat :: [BitString] -> BitString
 concat = P.foldr append empty
 
 mapBytes :: (Word8 -> Word8) -> BitString -> BitString
-mapBytes _ EMPTY             = empty
+mapBytes _ Empty             = empty
 mapBytes f (BitString h l t) = BitString (f h) l $ BL.map f t
 {-# INLINE mapBytes #-}
 
@@ -536,45 +551,45 @@ mapBytes f (BitString h l t) = BitString (f h) l $ BL.map f t
 -- of pairs of 'Bit's. If one 'BitString' is longer, its last elements are
 -- discarded.
 zip :: BitString -> BitString -> [(Word8, Word8)]
-zip EMPTY _ = []
-zip _ EMPTY = []
+zip Empty _ = []
+zip _ Empty = []
 zip x y     = (head x, head y) : zip (tail x) (tail y)
 
 -- | \(\mathcal{O}(\min(n, m))\) Same as 'zip', but returns a list of pairs
 -- of 'Bool's.
 zipB :: BitString -> BitString -> [(Bool, Bool)]
-zipB EMPTY _ = []
-zipB _ EMPTY = []
+zipB Empty _ = []
+zipB _ Empty = []
 zipB x y     = (headB x, headB y) : zipB (tail x) (tail y)
 
 -- I don't see much use, but why not.
 -- | \(\mathcal{O}(\min(n, m))\) Equivalent to 'Prelude' 'Prelude.zipWith'
 -- for 'BitString's.
 zipWith :: (Bool -> Bool -> a) -> BitString -> BitString -> [a]
-zipWith _ EMPTY _ = []
-zipWith _ _ EMPTY = []
+zipWith _ Empty _ = []
+zipWith _ _ Empty = []
 zipWith f x y     = f (headB x) (headB y) : zipWith f (tail x) (tail y)
 
 -- | \(\mathcal{O}(\min(n, m))\) Generalized version of 'zipWith'.
 -- Takes two 'BitStrings' and a binary function on 'Bool's and returns new
 -- 'BitString'.
 packZipWith :: (Bool -> Bool -> Bool) -> BitString -> BitString -> BitString
-packZipWith _ EMPTY _ = empty
-packZipWith _ _ EMPTY = empty
+packZipWith _ Empty _ = empty
+packZipWith _ _ Empty = empty
 packZipWith f x y = f (headB x) (headB y) `consB` packZipWith f (tail x) (tail y)
 
 packZipWithBytes :: (Word8 -> Word8 -> Word8)
                  -> BitString
                  -> BitString
                  -> BitString
-packZipWithBytes _ EMPTY _ = empty
-packZipWithBytes _ _ EMPTY = empty
+packZipWithBytes _ Empty _ = empty
+packZipWithBytes _ _ Empty = empty
 packZipWithBytes f (BitString h1 l1 t1) (BitString h2 l2 t2) =
     BitString (f h1 h2) (min l1 l2) $ BL.packZipWith f t1 t2
 
 -- | \(\mathcal{O}(n)\) Equivalent to 'Prelude' 'Prelude.foldr'.
 foldr :: (Bool -> a -> a) -> a -> BitString -> a
-foldr _ x EMPTY = x
+foldr _ x Empty = x
 foldr f x bs    = f (headB bs) $ foldr f x (tail bs)
 
 -- | \(\mathcal{O}(n)\) Like 'foldr', but strict in the accumulator.
@@ -584,7 +599,7 @@ foldr' f !x bs                        = f (headB bs) $ foldr' f x (tail bs)
 
 -- | \(\mathcal{O}(n)\) Equivalent to 'Prelude' 'Prelude.foldl'.
 foldl :: (a -> Bool -> a) -> a -> BitString -> a
-foldl _ x EMPTY = x
+foldl _ x Empty = x
 foldl f x bs    = f (foldl f x (tail bs)) $ headB bs
 
 -- | \(\mathcal{O}(n)\) Like 'foldl', but strict in the accumulator.
