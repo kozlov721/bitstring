@@ -222,7 +222,6 @@ instance Read BitString where
 replicate :: Int64 -> Bool -> BitString
 replicate n b = packB $ P.replicate (fromIntegral n) b
 
--- TODO: Better algorithm
 -- \(\mathcal{O}(n)\) Reverses elements in a 'BitString'.
 reverse :: BitString -> BitString
 reverse = pack . P.reverse . unpack
@@ -295,9 +294,10 @@ consB b bs = fromIntegral (fromEnum b) ::: bs
 {-# INLINE consB #-}
 
 -- | \(\mathcal{O}(n)\) Similar to 'cons', but appends the 'Bit' at the
--- end of the 'BitString'.
+-- end of the 'BitString'. Very inneficient as it requires rebuilding
+-- the wole 'BitString'.
 snoc :: BitString -> Bit -> BitString
-snoc bs b = pack $ unpack bs ++ [b] -- TODO: better implementation
+snoc bs b = pack $ unpack bs ++ [b]
 {-# INLINE snoc #-}
 
 -- | \(\mathcal{O}(n)\) Same as 'snoc', but takes 'Bool' as an argument.
@@ -503,7 +503,6 @@ drop 0 bs       = bs
 drop _ Empty    = Empty
 drop n (_:::bs) = drop (n - 1) bs
 
--- TODO: Better algorithm, make use of ByteString
 -- | \(\mathcal{O}(n \cdot m)\) Drops \(n\) elemnets
 -- from the end of the 'BitString'. Inefficient.
 dropEnd :: Int64 -> BitString -> BitString
@@ -524,7 +523,6 @@ take n (b:::bs) = b ::: take (n - 1) bs
     -- Nothing     -> bs
     -- Just (h, t) -> h ::: take (n - 1) t
 
--- TODO: Better algorithm, make use of ByteString
 -- | \(\mathcal{O}(n \cdot m)\) Takes \(n\) elemnets
 -- from the end of the 'BitString'. Inefficient.
 takeEnd :: Int64 -> BitString -> BitString
