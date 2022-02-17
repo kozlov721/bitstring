@@ -28,6 +28,9 @@ library:
   dependencies:
   - yjtools
   - template-haskell
+  ghc-options:
+    - -O2
+    - -threaded
 
 tests:
   bitstring-test:
