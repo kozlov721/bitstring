@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns    #-}
 {-# LANGUAGE CPP             #-}
+{-# LANGUAGE DeriveLift      #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies    #-}
 {-# LANGUAGE ViewPatterns    #-}
@@ -146,6 +147,7 @@ import qualified Data.Bifunctor                as Bi
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.ByteString.Lazy.Internal as BLI
+import qualified Language.Haskell.TH.Syntax    as TH
 import qualified Prelude                       as P
 
 
@@ -161,6 +163,7 @@ type Bit = Word8
 data BitString = BitString Word8      -- ^ head
                            Word8      -- ^ number of used bits in the head
                            ByteString -- ^ tail
+               deriving (TH.Lift)
 
 instance Eq BitString where
   (BitString h1 l1 t1) == (BitString h2 l2 t2) =
@@ -170,7 +173,7 @@ instance Ord BitString where
   compare Empty Empty = EQ
   compare Empty _     = LT
   compare _     Empty = GT
-  compare l r = compare (toByteString l) (toByteString r)
+  compare l r         = compare (toByteString l) (toByteString r)
 
 instance Semigroup BitString where
   (<>) = append
