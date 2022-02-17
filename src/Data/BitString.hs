@@ -639,38 +639,32 @@ appendFile p = BL.appendFile p . toByteString
 
 -- Legacy compatibility
 
-{-# DEPRECATED bitString "Use fromByteStringStrict instead" #-}
--- | Alias to 'fromByteStringStrict'.
+{-# DEPRECATED bitString "Use 'fromByteStringStrict' instead" #-}
 bitString :: BS.ByteString -> BitString
 bitString = fromByteStringStrict
 {-# INLINE bitString #-}
 
-{-# DEPRECATED bitStringLazy "Use fromByteString instead" #-}
--- | Alias to 'fromByteString'.
+{-# DEPRECATED bitStringLazy "Use 'fromByteString' instead" #-}
 bitStringLazy :: ByteString -> BitString
 bitStringLazy = fromByteString
 {-# INLINE bitStringLazy #-}
 
-{-# DEPRECATED toList "Use unpackB instead" #-}
--- | Alias to 'unpackB'.
+{-# DEPRECATED toList "Use 'unpackB' instead" #-}
 toList :: BitString -> [Bool]
 toList = unpackB
 {-# INLINE toList #-}
 
-{-# DEPRECATED to01List "Use unpack instead" #-}
--- | Alias to 'unpack'.
+{-# DEPRECATED to01List "Use 'unpack' instead" #-}
 to01List :: BitString -> [Word8]
 to01List = unpack
 {-# INLINE to01List #-}
 
-{-# DEPRECATED fromList "Use packB instead" #-}
--- | Alias to 'packB'.
+{-# DEPRECATED fromList "Use 'packB' instead" #-}
 fromList :: [Bool] -> BitString
 fromList = packB
 {-# INLINE fromList #-}
 
-{-# DEPRECATED from01List "Use pack instead" #-}
--- | Alias to 'pack'.
+{-# DEPRECATED from01List "Use 'pack' instead" #-}
 from01List :: [Word8] -> BitString
 from01List = pack
 {-# INLINE from01List #-}
@@ -683,14 +677,12 @@ unsafeBitString' :: Int64 -- ^ offset
                  -> BitString
 unsafeBitString' o l bs = fromByteString $ BL.take l $ BL.drop 0 bs
 
-{-# DEPRECATED realizeBitString "Use toByteStringStrict instead" #-}
--- | Alias to 'toByteStringStrict'.
+{-# DEPRECATED realizeBitString "Use 'toByteStringStrict' instead" #-}
 realizeBitString :: BitString -> BS.ByteString
 realizeBitString = toByteStringStrict
 {-# INLINE realizeBitString #-}
 
-{-# DEPRECATED realizeBitStringLazy "Use toByteString instead" #-}
--- | Alias to 'toByteString'.
+{-# DEPRECATED realizeBitStringLazy "Use 'toByteString' instead" #-}
 realizeBitStringLazy :: BitString -> ByteString
 realizeBitStringLazy = toByteString
 {-# INLINE realizeBitStringLazy #-}
