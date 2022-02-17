@@ -166,6 +166,12 @@ instance Eq BitString where
   (BitString h1 l1 t1) == (BitString h2 l2 t2) =
       h1 == h2 && l1 == l2 && t1 == t2
 
+instance Ord BitString where
+  compare Empty Empty = EQ
+  compare Empty _     = LT
+  compare _     Empty = GT
+  compare l r = compare (toByteString l) (toByteString r)
+
 instance Semigroup BitString where
   (<>) = append
 
