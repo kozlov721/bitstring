@@ -173,7 +173,7 @@ instance Ord BitString where
   compare Empty Empty = EQ
   compare Empty _     = LT
   compare _     Empty = GT
-  compare l r         = compare (toByteString l) (toByteString r)
+  compare l     r     = compare (toByteString l) (toByteString r)
 
 instance Semigroup BitString where
   (<>) = append
@@ -239,7 +239,6 @@ infixr 5 :::
 pattern (:::) :: Word8 -> BitString -> BitString
 pattern b:::bs <- (uncons -> Just (b, bs))
   where b:::bs = cons b bs
-
 
 -- | \(\mathcal{O}(n)\) Safe version of '(!)'.
 infixl 9 !?
@@ -370,14 +369,17 @@ unsnocB = Bi.second (/=0) <.> unsnoc
 -- | \(\mathcal{O}(n)\) Returns a 'BitString' without the last element.
 init :: BitString -> BitString
 init = fst . unsnocUnsafe
+{-# INLINE init #-}
 
 -- | \(\mathcal{O}(n)\) Returns the last element of a 'BitString' as 'Bit'.
 last :: BitString -> Bit
 last = snd . unsnocUnsafe
+{-# INLINE last #-}
 
 -- | \(\mathcal{O}(n)\) Boolean equivalent for 'last'.
 lastB :: BitString -> Bool
 lastB = (/=0) . last
+{-# INLINE lastB #-}
 
 -- | \(\mathcal{O}(1)\) unsafe version of 'uncons'.
 -- Throws an error in case of an empty 'BitString'.
@@ -456,6 +458,7 @@ fromNumber = pack . P.reverse . go
     go :: (Integral a) => a -> [Word8]
     go 0 = []
     go n = (fromIntegral n `mod` 2) : go (n `div` 2)
+{-# INLINE fromNumber #-}
 
 -- | \(\mathcal{O}(1)\) Converts a 'BitString' to a lazy 'ByteString'.
 -- The 'BitString' is prepended with zeros if its length is not divisible by 8.
@@ -501,6 +504,7 @@ drop :: Int64 -> BitString -> BitString
 drop 0 bs       = bs
 drop _ Empty    = Empty
 drop n (_:::bs) = drop (n - 1) bs
+{-# INLINE drop #-}
 
 -- | \(\mathcal{O}(n \cdot m)\) Drops \(n\) elemnets
 -- from the end of the 'BitString'. Inefficient.
@@ -509,6 +513,7 @@ dropEnd 0 bs = bs
 dropEnd n bs = case unsnoc bs of
     Nothing     -> empty
     Just (t, _) -> dropEnd (n - 1) t
+{-# INLINE dropEnd #-}
 
 -- | \(\mathcal{O}(n)\) Returns the prefix of 'BitString' of length \(n\)
 -- or the 'BitString' itself if \(n\) is greater than the length of the
@@ -517,10 +522,7 @@ take :: Int64 -> BitString -> BitString
 take _ Empty    = empty
 take 0 bs       = empty
 take n (b:::bs) = b ::: take (n - 1) bs
--- take 0 bs = empty
--- take n bs = case uncons bs of
-    -- Nothing     -> bs
-    -- Just (h, t) -> h ::: take (n - 1) t
+{-# INLINE take #-}
 
 -- | \(\mathcal{O}(n \cdot m)\) Takes \(n\) elemnets
 -- from the end of the 'BitString'. Inefficient.
@@ -529,6 +531,7 @@ takeEnd 0 bs = empty
 takeEnd n bs = case unsnoc bs of
     Nothing     -> bs
     Just (i, l) -> takeEnd (n - 1) i `snoc` l
+{-# INLINE takeEnd #-}
 
 -- | \(\mathcal{O}(n)\), \(\Omega(n/c)\) appends two 'BitString's.
 -- In general not very efficient if length of the latter 'BitString' is not
@@ -544,6 +547,7 @@ append a b = P.foldr cons b $ unpack a
 -- | \(\mathcal{O}(n \cdot m)\) Concatenates a list of 'BitString's.
 concat :: [BitString] -> BitString
 concat = P.foldr append empty
+{-# INLINE concat #-}
 
 mapBytes :: (Word8 -> Word8) -> BitString -> BitString
 mapBytes _ Empty             = empty
@@ -557,6 +561,7 @@ zip :: BitString -> BitString -> [(Word8, Word8)]
 zip Empty _ = []
 zip _ Empty = []
 zip x y     = (head x, head y) : zip (tail x) (tail y)
+{-# INLINE zip #-}
 
 -- | \(\mathcal{O}(\min(n, m))\) Same as 'zip', but returns a list of pairs
 -- of 'Bool's.
@@ -564,6 +569,7 @@ zipB :: BitString -> BitString -> [(Bool, Bool)]
 zipB Empty _ = []
 zipB _ Empty = []
 zipB x y     = (headB x, headB y) : zipB (tail x) (tail y)
+{-# INLINE zipB #-}
 
 -- I don't see much use, but why not.
 -- | \(\mathcal{O}(\min(n, m))\) Equivalent to 'Prelude' 'Prelude.zipWith'
@@ -572,6 +578,7 @@ zipWith :: (Bool -> Bool -> a) -> BitString -> BitString -> [a]
 zipWith _ Empty _ = []
 zipWith _ _ Empty = []
 zipWith f x y     = f (headB x) (headB y) : zipWith f (tail x) (tail y)
+{-# INLINE zipWith #-}
 
 -- | \(\mathcal{O}(\min(n, m))\) Generalized version of 'zipWith'.
 -- Takes two 'BitStrings' and a binary function on 'Bool's and returns new
@@ -580,6 +587,7 @@ packZipWith :: (Bool -> Bool -> Bool) -> BitString -> BitString -> BitString
 packZipWith _ Empty _ = empty
 packZipWith _ _ Empty = empty
 packZipWith f x y = f (headB x) (headB y) `consB` packZipWith f (tail x) (tail y)
+{-# INLINE packZipWith #-}
 
 packZipWithBytes :: (Word8 -> Word8 -> Word8)
                  -> BitString
@@ -589,26 +597,31 @@ packZipWithBytes _ Empty _ = empty
 packZipWithBytes _ _ Empty = empty
 packZipWithBytes f (BitString h1 l1 t1) (BitString h2 l2 t2) =
     BitString (f h1 h2) (min l1 l2) $ BL.packZipWith f t1 t2
+{-# INLINE packZipWithBytes #-}
 
 -- | \(\mathcal{O}(n)\) Equivalent to 'Prelude' 'Prelude.foldr'.
 foldr :: (Bool -> a -> a) -> a -> BitString -> a
 foldr _ x Empty = x
 foldr f x bs    = f (headB bs) $ foldr f x (tail bs)
+{-# INLINE foldr #-}
 
 -- | \(\mathcal{O}(n)\) Like 'foldr', but strict in the accumulator.
 foldr' :: (Bool -> a -> a) -> a -> BitString -> a
 foldr' _ !x (BitString 0 0 BLI.Empty) = x
 foldr' f !x bs                        = f (headB bs) $ foldr' f x (tail bs)
+{-# INLINE foldr' #-}
 
 -- | \(\mathcal{O}(n)\) Equivalent to 'Prelude' 'Prelude.foldl'.
 foldl :: (a -> Bool -> a) -> a -> BitString -> a
 foldl _ x Empty = x
 foldl f x bs    = f (foldl f x (tail bs)) $ headB bs
+{-# INLINE foldl #-}
 
 -- | \(\mathcal{O}(n)\) Like 'foldl', but strict in the accumulator.
 foldl' :: (a -> Bool -> a) -> a -> BitString -> a
 foldl' _ !x (BitString 0 0 BLI.Empty) = x
 foldl' f !x bs                        = f (foldl' f x (tail bs)) $ headB bs
+{-# INLINE foldl' #-}
 
 -- | \(\mathcal{O}(n)\) @'splitAt' n xs@ is equivalent
 -- to @('take' n xs, 'drop' n xs)@.
@@ -625,14 +638,17 @@ splitAtEnd n bs = (dropEnd n bs, takeEnd n bs)
 -- | Read a file into a 'BitString'.
 readFile :: FilePath -> IO BitString
 readFile = fromByteString <.> BL.readFile
+{-# INLINE readFile #-}
 
 -- | Writes a 'BitString' to a file.
 writeFile :: FilePath -> BitString -> IO ()
 writeFile p = BL.writeFile p . toByteString
+{-# INLINE writeFile #-}
 
 -- | Appends a 'BitString' to a file.
 appendFile :: FilePath -> BitString -> IO ()
 appendFile p = BL.appendFile p . toByteString
+{-# INLINE appendFile #-}
 
 -- Legacy compatibility
 
@@ -673,6 +689,7 @@ unsafeBitString' :: Int64 -- ^ offset
                  -> ByteString -- ^ source
                  -> BitString
 unsafeBitString' o l bs = fromByteString $ BL.take l $ BL.drop 0 bs
+{-# INLINE unsafeBitString' #-}
 
 {-# DEPRECATED realizeBitString "Use 'toByteStringStrict' instead" #-}
 realizeBitString :: BitString -> BS.ByteString
