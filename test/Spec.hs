@@ -43,7 +43,7 @@ simpleTests =
     | n <- [0..20]
     ] ++
     [ "neq" ~: show x ++ " /= " ++ show y
-        -- why is there no /~=?
+        -- why is there no ~/=?
         ~: True ~=? BS.fromNumber x /= BS.fromNumber y
     | x <- [0..10]
     , y <- [11..20]
@@ -51,7 +51,8 @@ simpleTests =
     [ "null" ~: show bs ~: False ~=? BS.null bs
     | bs <- [BS.replicate n False | n <- [1..20]]
     ] ++
-    [ "length" ~: show bits ~: fromIntegral (length bits) ~=? BS.length (BS.pack bits)
+    [ "length" ~: show bits
+        ~: fromIntegral (length bits) ~=? BS.length (BS.pack bits)
     | bits <- [toBinary n | n <- [0..100]]
     ] ++
     [ "append" ~: show (x ++ y)
@@ -78,8 +79,8 @@ simpleTests =
         ~: fromIntegral (length bits) ~=? BS.length (BS.pack bits)
     | bits <- [toBinary n | n <- [0..100]]
     ] ++
-    [ "semigroup" ~: show a ++ " <> " ++ show b ++ " <> " ++ show c
-        ~: (a <> b) <> c ~=? a <> b <> c
+    [ "semigroup-asoc" ~: show a ++ " <> " ++ show b ++ " <> " ++ show c
+        ~: (a <> b) <> c ~=? a <> (b <> c)
     | a <- [BS.fromNumber n | n <- [0..10]]
     , b <- [BS.fromNumber n | n <- [0..10]]
     , c <- [BS.fromNumber n | n <- [0..10]]
@@ -97,34 +98,34 @@ simpleTests =
         ~=? BS.replicate n False
     | n <- [0..100]
     ] ++
-    [ "take" ~: show (take n b)
+    [ "take" ~: show n ++ " " ++ show b
         ~: take n b ~=? BS.unpack (BS.take (fromIntegral n) (BS.pack b))
-    | b <- [toBinary n | n <- [0..50]]
+    | b <- [toBinaryPad n | n <- [0..50]]
     , n <- [0..10]
     ] ++
-    [ "drop" ~: show (drop n b)
+    [ "drop" ~: show n ++ " " ++ show b
         ~: drop n b ~=? BS.unpack (BS.drop (fromIntegral n) (BS.pack b))
     | b <- [toBinary n | n <- [0..50]]
     , n <- [0..10]
     ] ++
-    [ "takeEnd" ~: show (takeEnd n b)
+    [ "takeEnd" ~: show n ++ " " ++ show b
         ~: takeEnd n b ~=? BS.unpack (BS.takeEnd (fromIntegral n) (BS.pack b))
     | b <- [toBinary n | n <- [0..50]]
     , n <- [0..10]
     ] ++
-    [ "dropEnd" ~: show (dropEnd n b)
+    [ "dropEnd" ~: show n ++ " " ++ show b
         ~: dropEnd n b ~=? BS.unpack (BS.dropEnd (fromIntegral n) (BS.pack b))
     | b <- [toBinary n | n <- [0..50]]
     , n <- [0..10]
     ] ++
-    [ "splitAt" ~: show (splitAt n b)
+    [ "splitAt" ~: show n ++ " " ++ show b
         ~: splitAt n b
         ~=? Bi.bimap BS.unpack BS.unpack
         (BS.splitAt (fromIntegral n) (BS.pack b))
     | b <- [toBinary n | n <- [0..50]]
     , n <- [0..10]
     ] ++
-    [ "splitAtEnd" ~: show (splitAtEnd n b)
+    [ "splitAtEnd" ~: show n ++ " " ++ show b
         ~: splitAtEnd n b
         ~=? Bi.bimap BS.unpack BS.unpack
         (BS.splitAtEnd (fromIntegral n) (BS.pack b))
@@ -215,12 +216,12 @@ runAllTest = do
         print text
         quickCheck prop
 
-  mytest ("fromToList"    , prop_fromToList )
-  mytest ("toFromList"    , prop_toFromList )
+  mytest ("fromToList"   , prop_fromToList )
+  mytest ("toFromList"   , prop_toFromList )
   mytest ("append"       , prop_append     )
   mytest ("drop"         , prop_drop       )
   mytest ("take"         , prop_take       )
-  mytest ("realizeLen"   , prop_realizeLen   )
+  mytest ("realizeLen"   , prop_realizeLen )
 
 prop_fromToList :: BitString -> Bool
 prop_fromToList bits = BS.fromList (BS.toList bits) == bits
@@ -232,15 +233,18 @@ prop_append :: [BitString] -> Bool
 prop_append xs = BS.toList (BS.concat xs) == concatMap BS.toList xs
 
 prop_drop :: Size -> BitString -> Bool
-prop_drop (Size k) xs = BS.toList (BS.drop k xs) == List.drop (fromIntegral k) (BS.toList xs)
+prop_drop (Size k) xs =
+    BS.toList (BS.drop k xs) == List.drop (fromIntegral k) (BS.toList xs)
 
 prop_take :: Size -> BitString -> Bool
-prop_take (Size k) xs = BS.toList (BS.take k xs) == List.take (fromIntegral k) (BS.toList xs)
+prop_take (Size k) xs =
+    BS.toList (BS.take k xs) == List.take (fromIntegral k) (BS.toList xs)
 
 prop_realizeLen :: BitString -> Bool
 prop_realizeLen bits =
     let n = BS.length bits
-    in  (n + 7) `div` 8 == fromIntegral (BSS.length $ BS.realizeBitStringStrict bits)
+    in  (n + 7) `div` 8 == fromIntegral
+        (BSS.length $ BS.realizeBitStringStrict bits)
 
 toBinary :: Word32 -> [Word8]
 toBinary 0 = []
