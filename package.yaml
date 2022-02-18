@@ -27,7 +27,6 @@ dependencies:
 library:
   source-dirs: src
   dependencies:
-  - yjtools
   - template-haskell
   ghc-options:
     - -O2

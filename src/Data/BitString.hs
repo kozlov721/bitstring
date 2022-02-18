@@ -140,7 +140,6 @@ import Prelude hiding
     , zipWith
     )
 
-import Control.Applicative.Tools ((<.>))
 import Data.Bits
 import Data.ByteString.Lazy      (ByteString)
 import Data.Int                  (Int64)
@@ -362,7 +361,7 @@ uncons (BitString h l t) = Just
 
 -- | \(\mathcal{O}(1)\) Same as 'uncons', but uses 'Bool' instead of 'Bit'.
 unconsB :: BitString -> Maybe (Bool, BitString)
-unconsB = Bi.first (/=0) <.> uncons
+unconsB bs = Bi.first (/=0) <$> uncons bs
 {-# INLINE unconsB #-}
 
 -- | \(\mathcal{O}(n)\) Returns 'init' and 'last' of a 'BitString',
@@ -376,7 +375,7 @@ unsnoc bs = Just (pack $ P.init bits, P.last bits)
 
 -- | \(\mathcal{O}(n)\) Same as 'unsnoc', but uses 'Bool' instead of 'Bit'.
 unsnocB :: BitString -> Maybe (BitString, Bool)
-unsnocB = Bi.second (/=0) <.> unsnoc
+unsnocB bs = Bi.second (/=0) <$> unsnoc bs
 {-# INLINE unsnocB #-}
 
 -- | \(\mathcal{O}(n)\) Returns a 'BitString' without the last element.
@@ -652,7 +651,7 @@ splitAtEnd n bs = (dropEnd n bs, takeEnd n bs)
 
 -- | Reads a file into a 'BitString'.
 readFile :: FilePath -> IO BitString
-readFile = fromByteString <.> BL.readFile
+readFile path = fromByteString <$> BL.readFile path
 {-# INLINE readFile #-}
 
 -- | Writes a 'BitString' to a file.
