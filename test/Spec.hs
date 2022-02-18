@@ -91,8 +91,9 @@ simpleTests =
     [ "monoid-left" ~: show bs ~: mempty <> bs ~=? bs
     | bs <- [BS.fromNumber n | n <- [0..10]]
     ] ++
-    [ "reverse" ~: show bs ~: bs ~=? (BS.reverse . BS.reverse) bs
-    | bs <- [BS.fromNumber n | n <- [0..50]]
+    [ "reverse" ~: show bits
+        ~: (BS.pack . reverse) bits ~=? (BS.reverse . BS.pack) bits
+    | bits <- [toBinary n | n <- [0..200]]
     ] ++
     [ "replicate" ~: show n ~: BS.packB (replicate (fromIntegral n) False)
         ~=? BS.replicate n False
