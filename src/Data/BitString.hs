@@ -17,7 +17,7 @@
 -- around 'Data.ByteString.Lazy'.
 --
 -- This module is intended to be imported @qualified@, to avoid name
--- clashes with "Prelude" functions.  eg.
+-- clashes with "Prelude" functions, e.g.
 --
 -- > import qualified Data.BitString as BS
 --
@@ -58,14 +58,14 @@ module Data.BitString
     , singleton
     , fromByteString
     , fromByteStringStrict
-    , fromByteStringWithPadding
+    , fromByteStringPadded
     , fromNumber
     , pack
     , packB
     , replicate
     , toByteString
     , toByteStringStrict
-    , toByteStringWithPadding
+    , toByteStringPadded
     , toNumber
     , unpack
     , unpackB
@@ -189,37 +189,42 @@ instance IsList BitString where
 -- | Binary operators are correctly defined only for 'BitString's whose
 -- lengths are the same.
 instance Bits BitString where
-  -- TODO: This part could use a little bit of structure
   (.&.) = packZipWithBytes (.&.)
   (.|.) = packZipWithBytes (.|.)
   xor = packZipWithBytes xor
   complement = mapBytes complement
+
   shift bs x
-      | signum x == 1 = append (drop n bs)
-          $ replicate n False
-      | otherwise = append (replicate n False)
-          $ dropEnd n bs
+      | signum x == 1 = append (drop n bs) $ replicate n False
+      | otherwise = append (replicate n False) $ dropEnd n bs
     where
       n = fromIntegral $ abs x
+
   rotate bs 0 = bs
   rotate bs x
       | signum x == 1 = (\(x, y) -> append y x) $ splitAt n bs
       | otherwise = (\(x, y) -> append y x) $ splitAtEnd n bs
     where
       n = fromIntegral $ abs x
+
   bitSize = const maxBound
   bitSizeMaybe = const Nothing
   isSigned = const False
   testBit bs n = reverse bs !? fromIntegral n == Just 1
   bit n = cons 1 $ replicate (fromIntegral n) False
-  popCount = foldr (\x y -> y + fromEnum x) 0
+  popCount = foldr ((+) . fromEnum) 0
 
 instance Show BitString where
   show bs = show (unpack bs)
 
 instance Read BitString where
+#ifdef __GLASGOW_HASKELL__
   readPrec = parens $ prec 10 $ pack <$> readPrec
-
+#else
+  readsPrec p = readParen (p > 10) $ \r -> do
+      (xs, t) <- reads r
+      return (pack xs, t)
+#endif
 -- \(\mathcal{O}(n)\) Creates a 'BitString' of length \(n\) filled
 -- with the given value.
 replicate :: Int64 -> Bool -> BitString
@@ -434,11 +439,11 @@ fromByteStringStrict :: BS.ByteString -> BitString
 fromByteStringStrict = BitString 0 0 . BL.fromStrict
 {-# INLINE fromByteStringStrict #-}
 
--- | \(\mathcal{O}(c)\) reverse of 'toByteStringWithPadding'. Returns 'empty'
+-- | \(\mathcal{O}(c)\) reverse of 'toByteStringPadded'. Returns 'empty'
 -- in case the provided padding is greater than the size of the 'BitString'.
-fromByteStringWithPadding :: Word8 -> ByteString -> BitString
-fromByteStringWithPadding n bl = drop (fromIntegral n) $ fromByteString bl
-{-# INLINE fromByteStringWithPadding #-}
+fromByteStringPadded :: Word8 -> ByteString -> BitString
+fromByteStringPadded n bl = drop (fromIntegral n) $ fromByteString bl
+{-# INLINE fromByteStringPadded #-}
 
 -- | \(\mathcal{O}(n)\) constructs a 'BitString' from a list of 'Bit's.
 pack :: [Bit] -> BitString
@@ -451,7 +456,7 @@ packB = P.foldr consB empty
 {-# INLINE packB #-}
 
 -- | Converts an instance of 'Integral' to a 'BitString'. Be aware that no
--- padding is added for fixe sized integrals.
+-- padding is added for fixed sized integrals.
 fromNumber :: (Integral a) => a -> BitString
 fromNumber = pack . P.reverse . go
   where
@@ -476,10 +481,10 @@ toByteStringStrict = BL.toStrict . toByteString
 
 -- | \(\mathcal{O}(1)\) Similar to 'toByteString', but also returns the
 -- number of leading zeros.
-toByteStringWithPadding :: BitString -> (Word8, ByteString)
-toByteStringWithPadding Empty                = (0, BL.empty)
-toByteStringWithPadding bs@(BitString _ l _) = (8 - l, toByteString bs)
-{-# INLINE toByteStringWithPadding #-}
+toByteStringPadded :: BitString -> (Word8, ByteString)
+toByteStringPadded Empty                = (0, BL.empty)
+toByteStringPadded bs@(BitString _ l _) = (8 - l, toByteString bs)
+{-# INLINE toByteStringPadded #-}
 
 -- | \(\mathcal{O}(n)\) Converts a 'BitString' into a list of 'Bit's.
 unpack :: BitString -> [Word8]
