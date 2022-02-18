@@ -1,14 +1,16 @@
-import Control.Monad  (void)
-import Data.BitString (BitString)
+import Control.Monad   (void)
+import Data.BitString  (BitString)
 import Data.Bits
-import Data.Maybe     (fromJust)
-import Data.Word      (Word32, Word8)
+import Data.List.Extra (dropEnd, takeEnd, splitAtEnd)
+import Data.Maybe      (fromJust)
+import Data.Word       (Word32, Word8)
 import Test.HUnit
 import Test.HUnit.Base (listAssert)
 
 import qualified Data.BitString       as BS
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.List            as List
+import qualified Data.Bifunctor as Bi
 
 
 simpleTests =
@@ -46,9 +48,20 @@ simpleTests =
     | x <- [toBinary n | n <- [0..40]]
     , y <- [toBinary n | n <- [0..40]]
     ] ++
+    [ "concat" ~: show (x ++ y ++ z) ~: BS.pack (x ++ y ++ z)
+        ~=? BS.concat (BS.pack <$> [x, y, z])
+    | x <- [toBinary n | n <- [0..10]]
+    , y <- [toBinary n | n <- [0..10]]
+    , z <- [toBinary n | n <- [0..10]]
+    ] ++
     [ "read-show" ~: show bits
         ~: let bs = BS.pack bits in bs ~=? (read . show) bs
     | bits <- [toBinary n | n <- [0..100]]
+    ] ++
+    [ "append" ~: show a ++ " <> " ++ show b
+        ~: (BS.pack a <> BS.pack b) ~=? BS.pack (a ++ b)
+    | a <- [toBinary n | n <- [0..20]]
+    , b <- [toBinary n | n <- [20..40]]
     ] ++
     [ "semigroup" ~: show a ++ " <> " ++ show b ++ " <> " ++ show c
         ~: (a <> b) <> c ~=? a <> (b <> c)
@@ -65,8 +78,43 @@ simpleTests =
     [ "reverse" ~: show bs ~: bs ~=? (BS.reverse . BS.reverse) bs
     | bs <- [BS.fromNumber n | n <- [0..100]]
     ] ++
-    [ "replicate" ~: show n ~: n ~=? BS.length (BS.replicate n False)
+    [ "replicate" ~: show n ~: BS.packB (replicate (fromIntegral n) False)
+        ~=? BS.replicate n False
     | n <- [0..100]
+    ] ++
+    [ "take" ~: show (take n b)
+        ~: take n b ~=? BS.unpack (BS.take (fromIntegral n) (BS.pack b))
+    | b <- [toBinary n | n <- [0..100]]
+    , n <- [0..10]
+    ] ++
+    [ "drop" ~: show (drop n b)
+        ~: drop n b ~=? BS.unpack (BS.drop (fromIntegral n) (BS.pack b))
+    | b <- [toBinary n | n <- [0..100]]
+    , n <- [0..10]
+    ] ++
+    [ "takeEnd" ~: show (takeEnd n b)
+        ~: takeEnd n b ~=? BS.unpack (BS.takeEnd (fromIntegral n) (BS.pack b))
+    | b <- [toBinary n | n <- [0..100]]
+    , n <- [0..10]
+    ] ++
+    [ "dropEnd" ~: show (dropEnd n b)
+        ~: dropEnd n b ~=? BS.unpack (BS.dropEnd (fromIntegral n) (BS.pack b))
+    | b <- [toBinary n | n <- [0..100]]
+    , n <- [0..10]
+    ] ++
+    [ "splitAt" ~: show (splitAt n b)
+        ~: splitAt n b
+        ~=? Bi.bimap BS.unpack BS.unpack
+        (BS.splitAt (fromIntegral n) (BS.pack b))
+    | b <- [toBinary n | n <- [0..100]]
+    , n <- [0..10]
+    ] ++
+    [ "splitAtEnd" ~: show (splitAtEnd n b)
+        ~: splitAtEnd n b
+        ~=? Bi.bimap BS.unpack BS.unpack
+        (BS.splitAtEnd (fromIntegral n) (BS.pack b))
+    | b <- [toBinary n | n <- [0..100]]
+    , n <- [0..10]
     ]
 
 bitsTests = concat
