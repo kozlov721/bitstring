@@ -42,6 +42,12 @@ simpleTests =
     [ "eq" ~: show n ~: BS.fromNumber n ~=? BS.fromNumber n
     | n <- [0..20]
     ] ++
+    [ "neq" ~: show x ++ " /= " ++ show y
+        -- why is there no /~=?
+        ~: True ~=? BS.fromNumber x /= BS.fromNumber y
+    | x <- [0..10]
+    , y <- [11..20]
+    ] ++
     [ "null" ~: show bs ~: False ~=? BS.null bs
     | bs <- [BS.replicate n False | n <- [1..20]]
     ] ++
