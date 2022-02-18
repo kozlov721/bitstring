@@ -19,15 +19,9 @@ import qualified Data.List            as List
 
 
 simpleTests =
-    [ "cons-uncons" ~: show bits ~: bits ~=? bitsCycle bits
-    | bits <- [toBinary n | n <- [0..100]]
-    ] ++
     [ "inner-consistency" ~: show bs ~: bs
         ~=? BS.fromByteString (BS.toByteString (BS.tail (1 `BS.cons` bs)))
     | bs <- [BS.pack $ toBinaryPad n | n <- [0..100]]
-    ] ++
-    [ "bool-cons-uncons" ~: show bits ~: bits ~=? bitsCycleB bits
-    | bits <- [map (/=0) $ toBinary n | n <- [0..100]]
     ] ++
     [ "unpack-pack" ~: show bits ~: bits ~=? (BS.unpack . BS.pack) bits
     | bits <- [toBinary n | n <- [0..100]]
@@ -45,13 +39,16 @@ simpleTests =
     [ "eq" ~: show n ~: BS.fromNumber n ~=? BS.fromNumber n
     | n <- [0..20]
     ] ++
+    [ "null" ~: show bs ~: False ~=? BS.null bs
+    | bs <- [BS.replicate n False | n <- [1..20]]
+    ] ++
     [ "length" ~: show bits ~: fromIntegral (length bits) ~=? BS.length (BS.pack bits)
     | bits <- [toBinary n | n <- [0..100]]
     ] ++
     [ "append" ~: show (x ++ y)
         ~: x ++ y ~=? BS.unpack (BS.append (BS.pack x) (BS.pack y))
-    | x <- [toBinary n | n <- [0..40]]
-    , y <- [toBinary n | n <- [0..40]]
+    | x <- [toBinary n | n <- [0..20]]
+    , y <- [toBinary n | n <- [0..20]]
     ] ++
     [ "concat" ~: show (x ++ y ++ z) ~: BS.pack (x ++ y ++ z)
         ~=? BS.concat (BS.pack <$> [x, y, z])
@@ -61,7 +58,7 @@ simpleTests =
     ] ++
     [ "read-show" ~: show bits
         ~: let bs = BS.pack bits in bs ~=? (read . show) bs
-    | bits <- [toBinary n | n <- [0..100]]
+    | bits <- [toBinary n | n <- [0..50]]
     ] ++
     [ "append" ~: show a ++ " <> " ++ show b
         ~: (BS.pack a <> BS.pack b) ~=? BS.pack (a ++ b)
@@ -81,7 +78,7 @@ simpleTests =
     | bs <- [BS.fromNumber n | n <- [0..10]]
     ] ++
     [ "reverse" ~: show bs ~: bs ~=? (BS.reverse . BS.reverse) bs
-    | bs <- [BS.fromNumber n | n <- [0..100]]
+    | bs <- [BS.fromNumber n | n <- [0..50]]
     ] ++
     [ "replicate" ~: show n ~: BS.packB (replicate (fromIntegral n) False)
         ~=? BS.replicate n False
@@ -89,36 +86,36 @@ simpleTests =
     ] ++
     [ "take" ~: show (take n b)
         ~: take n b ~=? BS.unpack (BS.take (fromIntegral n) (BS.pack b))
-    | b <- [toBinary n | n <- [0..100]]
+    | b <- [toBinary n | n <- [0..50]]
     , n <- [0..10]
     ] ++
     [ "drop" ~: show (drop n b)
         ~: drop n b ~=? BS.unpack (BS.drop (fromIntegral n) (BS.pack b))
-    | b <- [toBinary n | n <- [0..100]]
+    | b <- [toBinary n | n <- [0..50]]
     , n <- [0..10]
     ] ++
     [ "takeEnd" ~: show (takeEnd n b)
         ~: takeEnd n b ~=? BS.unpack (BS.takeEnd (fromIntegral n) (BS.pack b))
-    | b <- [toBinary n | n <- [0..100]]
+    | b <- [toBinary n | n <- [0..50]]
     , n <- [0..10]
     ] ++
     [ "dropEnd" ~: show (dropEnd n b)
         ~: dropEnd n b ~=? BS.unpack (BS.dropEnd (fromIntegral n) (BS.pack b))
-    | b <- [toBinary n | n <- [0..100]]
+    | b <- [toBinary n | n <- [0..50]]
     , n <- [0..10]
     ] ++
     [ "splitAt" ~: show (splitAt n b)
         ~: splitAt n b
         ~=? Bi.bimap BS.unpack BS.unpack
         (BS.splitAt (fromIntegral n) (BS.pack b))
-    | b <- [toBinary n | n <- [0..100]]
+    | b <- [toBinary n | n <- [0..50]]
     , n <- [0..10]
     ] ++
     [ "splitAtEnd" ~: show (splitAtEnd n b)
         ~: splitAtEnd n b
         ~=? Bi.bimap BS.unpack BS.unpack
         (BS.splitAtEnd (fromIntegral n) (BS.pack b))
-    | b <- [toBinary n | n <- [0..100]]
+    | b <- [toBinary n | n <- [0..50]]
     , n <- [0..10]
     ] ++
     ["findSubstring" ~: show a ++ " : " ++ show b ++ " : " ++ show c
@@ -163,6 +160,10 @@ bitsTests = concat
         ~: testBit (bit n :: BitString) m ~=? False
     | n <- [0..50] :: [Int]
     , m <- [n+1..50] :: [Int]
+    ] ++
+    [ "popCount" ~: show bits
+        ~: fromIntegral (sum bits) ~=? popCount (BS.pack bits)
+    | bits <- [toBinary n | n <- [0..100]]
     ]
 
 
@@ -227,12 +228,6 @@ prop_realizeLen :: BitString -> Bool
 prop_realizeLen bits =
     let n = BS.length bits
     in  (n + 7) `div` 8 == fromIntegral (BSS.length $ BS.realizeBitStringStrict bits)
-
-bitsCycle :: [Word8] -> [Word8]
-bitsCycle = BS.unpack . foldr BS.cons BS.empty
-
-bitsCycleB :: [Bool] -> [Bool]
-bitsCycleB = map (/=0) . BS.unpack . foldr BS.consB BS.empty
 
 toBinary :: Word32 -> [Word8]
 toBinary 0 = []
