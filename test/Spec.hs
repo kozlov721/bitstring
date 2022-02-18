@@ -68,6 +68,10 @@ simpleTests =
     | a <- [toBinary n | n <- [0..20]]
     , b <- [toBinary n | n <- [20..40]]
     ] ++
+    [ "length" ~: show bits
+        ~: fromIntegral (length bits) ~=? BS.length (BS.pack bits)
+    | bits <- [toBinary n | n <- [0..100]]
+    ] ++
     [ "semigroup" ~: show a ++ " <> " ++ show b ++ " <> " ++ show c
         ~: (a <> b) <> c ~=? a <> b <> c
     | a <- [BS.fromNumber n | n <- [0..10]]
