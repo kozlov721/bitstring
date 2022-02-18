@@ -32,8 +32,11 @@ simpleTests =
     [ "from-toNumber" ~: show n ~: n ~=? (BS.toNumber . BS.fromNumber) n
     | n <- [0..100]
     ] ++
+    [ "read-show" ~: show bs ~: bs ~=? (read . show) bs
+    | bs <- [BS.fromNumber n | n <- [0..100]]
+    ] ++
     [ "from-toByteString" ~: show bs
-        ~: bs ~=? (uncurry BS.fromByteStringWithPadding . BS.toByteStringWithPadding) bs
+        ~: bs ~=? (uncurry BS.fromByteStringPadded . BS.toByteStringPadded) bs
     | bs <- [BS.fromNumber n | n <- [0..100]]
     ] ++
     [ "eq" ~: show n ~: BS.fromNumber n ~=? BS.fromNumber n
