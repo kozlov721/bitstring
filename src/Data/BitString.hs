@@ -1,6 +1,5 @@
 {-# LANGUAGE BangPatterns    #-}
 {-# LANGUAGE CPP             #-}
-{-# LANGUAGE DeriveLift      #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies    #-}
 {-# LANGUAGE ViewPatterns    #-}
@@ -154,7 +153,6 @@ import qualified Data.Bifunctor                as Bi
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.ByteString.Lazy.Internal as BLI
-import qualified Language.Haskell.TH.Syntax    as TH
 import qualified Prelude                       as P
 
 
@@ -167,10 +165,10 @@ type Bit = Word8
 -- which allows constructing the 'ByteString'
 -- from single bits instead of bytes. This can be a useful
 -- abstraction when constructing binary data.
-data BitString = BitString Word8      -- ^ head
-                           Word8      -- ^ number of used bits in the head
-                           ByteString -- ^ tail
-               deriving (TH.Lift)
+data BitString = BitString { getH :: Word8      -- ^ head
+                           , getL :: Word8      -- ^ length of the head
+                           , getT :: ByteString -- ^ tail
+                           }
 
 instance Eq BitString where
   (BitString h1 l1 t1) == (BitString h2 l2 t2) =
@@ -463,7 +461,7 @@ fromByteStringStrict = BitString 0 0 . BL.fromStrict
 -- | \(\mathcal{O}(c)\) Reverse of 'toByteStringPadded'. Returns 'empty'
 -- in case the provided padding is greater than the size of the 'BitString'.
 fromByteStringPadded :: Word8 -> ByteString -> BitString
-fromByteStringPadded n bl = drop (fromIntegral n) $ fromByteString bl
+fromByteStringPadded n bl = dropBits (fromIntegral n) $ fromByteString bl
 {-# INLINE fromByteStringPadded #-}
 
 -- | \(\mathcal{O}(n)\) Constructs a 'BitString' from a list of 'Bit's.
@@ -490,7 +488,7 @@ fromNumber = pack . P.reverse . go
 -- | \(\mathcal{O}(1)\) Converts a 'BitString' to a lazy 'ByteString'.
 -- The 'BitString' is prepended with zeros if its length is not divisible by 8.
 toByteString :: BitString -> ByteString
-toByteString (BitString h 0 t) = t
+toByteString (BitString _ 0 t) = t
 toByteString (BitString h 8 t) = h `BL.cons` t
 toByteString bs                = toByteString $ 0 ::: bs
 {-# INLINE toByteString #-}
@@ -502,10 +500,12 @@ toByteStringStrict = BL.toStrict . toByteString
 {-# INLINE toByteStringStrict #-}
 
 -- | \(\mathcal{O}(1)\) Similar to 'toByteString', but also returns the
--- number of leading zeros.
+-- number of padded leading zeros.
 toByteStringPadded :: BitString -> (Word8, ByteString)
-toByteStringPadded Empty                = (0, BL.empty)
-toByteStringPadded bs@(BitString _ l _) = (8 - l, toByteString bs)
+toByteStringPadded Empty = (0, BL.empty)
+toByteStringPadded bs
+    | getL bs == 0 = (0, toByteString bs)
+    | otherwise    = (8 - getL bs, toByteString bs)
 {-# INLINE toByteStringPadded #-}
 
 -- | \(\mathcal{O}(n)\) Converts a 'BitString' into a list of 'Bit's.
@@ -524,13 +524,21 @@ toNumber :: (Integral a) => BitString -> a
 toNumber = P.foldl (\n b -> n * 2 + fromIntegral b) 0 . unpack
 {-# INLINE toNumber #-}
 
+dropBits :: Int64 -> BitString -> BitString
+dropBits 0 bs       = bs
+dropBits _ Empty    = empty
+dropBits n (_:::bs) = dropBits (n - 1) bs
+{-# INLINE dropBits #-}
+
 -- | \(\mathcal{O}(n)\) Returns the suffix of 'BitString' after
 -- the first \(n\) elements are dropped, or 'empty' if \(n\) is greater
 -- than the length of the 'BitString'.
 drop :: Int64 -> BitString -> BitString
-drop 0 bs       = bs
-drop _ Empty    = Empty
-drop n (_:::bs) = drop (n - 1) bs
+drop 0 bs    = bs
+drop _ Empty = empty
+drop n bs    = dropBits (n `mod` 8)
+    $ uncurry fromByteStringPadded
+    $ BL.drop (n `div` 8) <$> toByteStringPadded bs
 {-# INLINE drop #-}
 
 -- | \(\mathcal{O}(n \cdot m)\) Drops \(n\) elements
@@ -542,14 +550,24 @@ dropEnd n bs = case unsnoc bs of
     Just (t, _) -> dropEnd (n - 1) t
 {-# INLINE dropEnd #-}
 
+takeBits :: Int64 -> BitString -> BitString
+takeBits _ Empty    = empty
+takeBits 0 _        = empty
+takeBits n (b:::bs) = b ::: takeBits (n - 1) bs
+{-# INLINE takeBits #-}
+
 -- | \(\mathcal{O}(n)\) Returns the prefix of 'BitString' of length \(n\)
 -- or the 'BitString' itself if \(n\) is greater than the length of the
 -- 'BitString'.
 take :: Int64 -> BitString -> BitString
-take _ Empty    = empty
-take 0 bs       = empty
-take n (b:::bs) = b ::: take (n - 1) bs
-{-# INLINE take #-}
+take _ Empty = empty
+take 0 _     = empty
+take n bs
+    | BL.null i = takeBits (n `mod` 8) $ fromByteStringPadded p t
+    | otherwise = fromByteStringPadded p i
+        <> takeBits (n `mod` 8 + fromIntegral p) (fromByteString t)
+  where
+    (p, (i, t)) = BL.splitAt (n `div` 8) <$> toByteStringPadded bs
 
 -- | \(\mathcal{O}(n \cdot m)\) Takes \(n\) elements
 -- from the end of the 'BitString'. Inefficient.
