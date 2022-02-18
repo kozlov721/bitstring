@@ -62,6 +62,7 @@ module MODULE
     , null
     , length
     , reverse
+    , paddEqual
       -- * Construction and deconstruction of 'BitString's
     , empty
     , pattern Empty
@@ -192,12 +193,10 @@ instance IsList BitString where
   fromList = pack
   toList   = unpack
 
--- | Binary operators are correctly defined only for 'BitString's whose
--- lengths are the same.
 instance Bits BitString where
-  (.&.) = packZipWithBytes (.&.)
-  (.|.) = packZipWithBytes (.|.)
-  xor = packZipWithBytes xor
+  x .&. y = uncurry (packZipWithBytes (.&.)) $ paddEqual x y
+  x .|. y = uncurry (packZipWithBytes (.|.)) $ paddEqual x y
+  x `xor` y = uncurry (packZipWithBytes xor) $ paddEqual x y
   complement = mapBytes complement
 
   shift bs x
@@ -343,6 +342,21 @@ length :: BitString -> Int64
 length Empty             = 0
 length (BitString _ l t) = fromIntegral l + 8 * BL.length t
 {-# INLINE length #-}
+
+-- | \(\mathcal{O}(n)\) Takes two 'BitString's and returns a tuple
+-- of two 'BitStrings', where the shorter one is padded with zeros so
+-- its legnth match the longer one.
+paddEqual :: BitString -> BitString -> (BitString, BitString)
+paddEqual Empty Empty = (Empty, Empty)
+paddEqual Empty bs    = (mapBytes (const 0) bs, bs)
+paddEqual bs    Empty = (mapBytes (const 0) bs, bs)
+paddEqual x y
+    | length x > length y = (x, p <> y)
+    | length y > length x = (p <> x, y)
+    | otherwise           = (x, y)
+  where
+    p = replicate n False
+    n = abs $ length x - length y
 
 -- | \(\mathcal{O}(1)\) Returns 'head' and 'tail' of a 'BitString',
 -- or 'Nothing' if empty.
