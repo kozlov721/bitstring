@@ -28,8 +28,6 @@ library:
   source-dirs: src
   ghc-options:
     - -O2
-    - -Wall
-    - -Wextra
 
 tests:
   bitstring-test:
