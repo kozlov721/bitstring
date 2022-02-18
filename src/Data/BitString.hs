@@ -3,6 +3,8 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies    #-}
 {-# LANGUAGE ViewPatterns    #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 
 -- |
 #ifdef BIGENDIAN
@@ -205,8 +207,8 @@ instance Bits BitString where
 
   rotate bs 0 = bs
   rotate bs x
-      | signum x == 1 = (\(x, y) -> append y x) $ splitAt n bs
-      | otherwise = (\(x, y) -> append y x) $ splitAtEnd n bs
+      | signum x == 1 = (uncurry . flip) append $ splitAt n bs
+      | otherwise = (uncurry . flip) append $ splitAtEnd n bs
     where
       n = fromIntegral $ abs x
 
@@ -287,13 +289,13 @@ infixl 5 `snoc`, `snocB`
 -- | \(\mathcal{O}(1)\) 'cons' is analogous to '(Prelude.:)' for lists.
 cons :: Bit -> BitString -> BitString
 cons b (BitString h l t)
-    | l == 7    = BitString 0 0 (push h b 7 `BL.cons` t)
-    | otherwise = BitString (push h b l) (l + 1) t
+    | l == 7    = BitString 0 0 (push h b `BL.cons` t)
+    | otherwise = BitString (push h b) (l + 1) t
   where
 #ifdef BIGENDIAN
-    push h b _ = h * 2 + b
+    push h b = h * 2 + b
 #else
-    push h b l = h `div` 2 + b * 2 ^ 7
+    push h b = h `div` 2 + b * 2 ^ 7
 #endif
 {-# INLINE cons #-}
 
@@ -572,7 +574,7 @@ take n bs
 -- | \(\mathcal{O}(n \cdot m)\) Takes \(n\) elements
 -- from the end of the 'BitString'. Inefficient.
 takeEnd :: Int64 -> BitString -> BitString
-takeEnd 0 bs = empty
+takeEnd 0 _ = empty
 takeEnd n bs = case unsnoc bs of
     Nothing     -> bs
     Just (i, l) -> takeEnd (n - 1) i `snoc` l
@@ -734,7 +736,7 @@ unsafeBitString' :: Int64 -- ^ offset
                  -> Int64 -- ^ length
                  -> ByteString -- ^ source
                  -> BitString
-unsafeBitString' o l bs = fromByteString $ BL.take l $ BL.drop 0 bs
+unsafeBitString' o l bs = fromByteString $ BL.take l $ BL.drop o bs
 {-# INLINE unsafeBitString' #-}
 
 {-# DEPRECATED realizeBitStringStrict "Use 'toByteStringStrict' instead" #-}
