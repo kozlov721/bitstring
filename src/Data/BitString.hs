@@ -102,7 +102,7 @@ module Data.BitString
     , to01List
     , Data.BitString.fromList
     , from01List
-    , realizeBitString
+    , realizeBitStringStrict
     , realizeBitStringLazy
     ) where
 
@@ -266,10 +266,10 @@ findSubstring p w
     | otherwise = (+1) <$> findSubstring p (tail w)
   where
     lookup :: BitString -> BitString -> Bool
-    lookup _ Empty = False
     lookup Empty _ = True
-    lookup p w
-        | head p == head w = lookup (tail p) (tail w)
+    lookup _ Empty = False
+    lookup (p:::ps) (w:::ws)
+        | p == w    = lookup ps ws
         | otherwise = False
 
 infixr 5 `cons`, `consB`
@@ -691,10 +691,10 @@ unsafeBitString' :: Int64 -- ^ offset
 unsafeBitString' o l bs = fromByteString $ BL.take l $ BL.drop 0 bs
 {-# INLINE unsafeBitString' #-}
 
-{-# DEPRECATED realizeBitString "Use 'toByteStringStrict' instead" #-}
-realizeBitString :: BitString -> BS.ByteString
-realizeBitString = toByteStringStrict
-{-# INLINE realizeBitString #-}
+{-# DEPRECATED realizeBitStringStrict "Use 'toByteStringStrict' instead" #-}
+realizeBitStringStrict :: BitString -> BS.ByteString
+realizeBitStringStrict = toByteStringStrict
+{-# INLINE realizeBitStringStrict #-}
 
 {-# DEPRECATED realizeBitStringLazy "Use 'toByteString' instead" #-}
 realizeBitStringLazy :: BitString -> ByteString

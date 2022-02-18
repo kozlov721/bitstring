@@ -1,16 +1,21 @@
+{-# OPTIONS_GHC -Wno-deprecations #-}
 import Control.Monad   (void)
 import Data.BitString  (BitString)
 import Data.Bits
-import Data.List.Extra (dropEnd, takeEnd, splitAtEnd)
-import Data.Maybe      (fromJust)
+import Data.Int        (Int64)
+import Data.List       (isInfixOf)
+import Data.List.Extra (dropEnd, splitAtEnd, takeEnd)
+import Data.Maybe      (fromJust, isNothing)
 import Data.Word       (Word32, Word8)
 import Test.HUnit
 import Test.HUnit.Base (listAssert)
+import Test.QuickCheck hiding ((.&.))
 
+import qualified Data.Bifunctor       as Bi
 import qualified Data.BitString       as BS
+import qualified Data.ByteString      as BSS
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.List            as List
-import qualified Data.Bifunctor as Bi
 
 
 simpleTests =
@@ -64,7 +69,7 @@ simpleTests =
     , b <- [toBinary n | n <- [20..40]]
     ] ++
     [ "semigroup" ~: show a ++ " <> " ++ show b ++ " <> " ++ show c
-        ~: (a <> b) <> c ~=? a <> (b <> c)
+        ~: (a <> b) <> c ~=? a <> b <> c
     | a <- [BS.fromNumber n | n <- [0..10]]
     , b <- [BS.fromNumber n | n <- [0..10]]
     , c <- [BS.fromNumber n | n <- [0..10]]
@@ -115,6 +120,13 @@ simpleTests =
         (BS.splitAtEnd (fromIntegral n) (BS.pack b))
     | b <- [toBinary n | n <- [0..100]]
     , n <- [0..10]
+    ] ++
+    ["findSubstring" ~: show a ++ " : " ++ show b ++ " : " ++ show c
+        ~: let x = BS.concat [a, b, c]
+           in  Just (BS.length a) ~=? BS.findSubstring b x
+    | a <- [BS.replicate n False | n <- [0..10]]
+    , b <- [BS.fromNumber n | n <- [10,9..1]]
+    , c <- [BS.fromNumber n | n <- [0..10]]
     ]
 
 bitsTests = concat
@@ -153,6 +165,69 @@ bitsTests = concat
     , m <- [n+1..50] :: [Int]
     ]
 
+
+newtype Size     = Size     Int64  deriving Show
+newtype BoolList = BoolList [Bool] deriving Show
+
+newtype SearchFor = SearchFor BitString deriving Show
+
+instance Arbitrary Size where
+  arbitrary = Size . (fromIntegral :: Int -> Int64) <$> choose (0,64) -- 192)
+
+instance Arbitrary BoolList where
+  arbitrary = do
+    Size k <- arbitrary
+    BoolList <$> vector (fromIntegral k)
+
+-- with 48 bits, it's unlikely that there are other random appearances
+instance Arbitrary SearchFor where
+  arbitrary = do
+    b <- arbitrary
+    let l = BS.length b
+    if l >= 48 && l < 96
+      then return (SearchFor b)
+      else arbitrary
+
+instance Arbitrary BitString where
+  arbitrary = do
+    k <- choose (0,7)
+    BS.pack <$> vector k
+
+-- (some) legacy tests
+
+runAllTest :: IO ()
+runAllTest = do
+  let mytest (text,prop) = do
+        print text
+        quickCheck prop
+
+  mytest ("fromToList"    , prop_fromToList )
+  mytest ("toFromList"    , prop_toFromList )
+  mytest ("append"       , prop_append     )
+  mytest ("drop"         , prop_drop       )
+  mytest ("take"         , prop_take       )
+  mytest ("realizeLen"   , prop_realizeLen   )
+
+prop_fromToList :: BitString -> Bool
+prop_fromToList bits = BS.fromList (BS.toList bits) == bits
+
+prop_toFromList :: BoolList -> Bool
+prop_toFromList (BoolList list) = BS.toList (BS.fromList list) == list
+
+prop_append :: [BitString] -> Bool
+prop_append xs = BS.toList (BS.concat xs) == concatMap BS.toList xs
+
+prop_drop :: Size -> BitString -> Bool
+prop_drop (Size k) xs = BS.toList (BS.drop k xs) == List.drop (fromIntegral k) (BS.toList xs)
+
+prop_take :: Size -> BitString -> Bool
+prop_take (Size k) xs = BS.toList (BS.take k xs) == List.take (fromIntegral k) (BS.toList xs)
+
+prop_realizeLen :: BitString -> Bool
+prop_realizeLen bits =
+    let n = BS.length bits
+    in  (n + 7) `div` 8 == fromIntegral (BSS.length $ BS.realizeBitStringStrict bits)
+
 bitsCycle :: [Word8] -> [Word8]
 bitsCycle = BS.unpack . foldr BS.cons BS.empty
 
@@ -169,5 +244,7 @@ toBinaryPad n = replicate (32 - length bits) 0 ++ bits
     bits = reverse $ toBinary n
 
 main :: IO ()
-main =  void $ runTestTT $ test $ simpleTests ++ bitsTests
+main = do
+    runTestTT $ test $ simpleTests ++ bitsTests
+    runAllTest
 

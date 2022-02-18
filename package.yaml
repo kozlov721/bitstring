@@ -44,3 +44,4 @@ tests:
     - bitstring
     - HUnit
     - extra
+    - QuickCheck
