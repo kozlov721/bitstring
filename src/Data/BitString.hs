@@ -6,7 +6,13 @@
 {-# LANGUAGE ViewPatterns    #-}
 
 -- |
+#ifdef BIGENDIAN
+#define MODULE Data.BitString.BigEndian
+-- Module      : Data.BitString.BigEndian
+#else
+#define MODULE Data.BitString
 -- Module      : Data.BitString
+#endif
 -- Copyright   : (c) Martin Kozlovsky 2022
 -- License     : BSD-style
 --
@@ -19,11 +25,15 @@
 -- This module is intended to be imported @qualified@, to avoid name
 -- clashes with "Prelude" functions, e.g.
 --
+#ifdef BIGENDIAN
+-- > import qualified Data.BitString.BigEndian as BSE
+#else
 -- > import qualified Data.BitString as BS
+#endif
 --
 --
 
-module Data.BitString
+module MODULE
     ( -- * @BitString@
       BitString
     , Bit
@@ -98,9 +108,9 @@ module Data.BitString
     , bitString
     , bitStringLazy
     , unsafeBitString'
-    , Data.BitString.toList
+    , MODULE.toList
     , to01List
-    , Data.BitString.fromList
+    , MODULE.fromList
     , from01List
     , realizeBitStringStrict
     , realizeBitStringLazy
@@ -111,9 +121,7 @@ import Prelude hiding
     , concat
     , drop
     , foldl
-    , foldl'
     , foldr
-    , foldr'
     , head
     , init
     , last
@@ -136,8 +144,7 @@ import Control.Applicative.Tools ((<.>))
 import Data.Bits
 import Data.ByteString.Lazy      (ByteString)
 import Data.Int                  (Int64)
-import Data.Maybe                (fromJust, isNothing)
-import Data.Semigroup            ((<>))
+import Data.Maybe                (fromJust)
 import Data.Word                 (Word8)
 import GHC.Exts                  (IsList (..))
 import GHC.List                  (errorEmptyList)
@@ -593,7 +600,8 @@ zipWith f x y     = f (headB x) (headB y) : zipWith f (tail x) (tail y)
 packZipWith :: (Bool -> Bool -> Bool) -> BitString -> BitString -> BitString
 packZipWith _ Empty _ = empty
 packZipWith _ _ Empty = empty
-packZipWith f x y = f (headB x) (headB y) `consB` packZipWith f (tail x) (tail y)
+packZipWith f x y = f (headB x) (headB y)
+    `consB` packZipWith f (tail x) (tail y)
 {-# INLINE packZipWith #-}
 
 packZipWithBytes :: (Word8 -> Word8 -> Word8)

@@ -3,7 +3,7 @@ version:             0.1.0.0
 github:              "kozlov721/bitstring"
 license:             BSD3
 author:              "Martin Kozlovský"
-# maintainer:          "example@example.com"
+maintainer:          "kozlovsky.m7@gmail.com"
 copyright:           "2022 Martin Kozlovský"
 
 extra-source-files:
@@ -23,6 +23,7 @@ dependencies:
 - base >= 4.7 && < 5
 - bytestring >= 0.11.1.0
 
+
 library:
   source-dirs: src
   dependencies:
@@ -30,7 +31,6 @@ library:
   - template-haskell
   ghc-options:
     - -O2
-    - -threaded
 
 tests:
   bitstring-test:

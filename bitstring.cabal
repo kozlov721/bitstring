@@ -10,7 +10,7 @@ description:    Please see the README on GitHub at <https://github.com/kozlov721
 homepage:       https://github.com/kozlov721/bitstring#readme
 bug-reports:    https://github.com/kozlov721/bitstring/issues
 author:         Martin Kozlovský
-maintainer:     Martin Kozlovský
+maintainer:     kozlovsky.m7@gmail.com
 copyright:      2022 Martin Kozlovský
 license:        BSD3
 license-file:   LICENSE
@@ -26,11 +26,12 @@ source-repository head
 library
   exposed-modules:
       Data.BitString
+      Data.BitString.BigEndian
   other-modules:
       Paths_bitstring
   hs-source-dirs:
       src
-  ghc-options: -O2 -threaded
+  ghc-options: -O2
   build-depends:
       base >=4.7 && <5
     , bytestring >=0.11.1.0
