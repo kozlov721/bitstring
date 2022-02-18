@@ -143,12 +143,12 @@ import Prelude hiding
     )
 
 import Data.Bits
-import Data.ByteString.Lazy      (ByteString)
-import Data.Int                  (Int64)
-import Data.Maybe                (fromJust)
-import Data.Word                 (Word8)
-import GHC.Exts                  (IsList (..))
-import GHC.List                  (errorEmptyList)
+import Data.ByteString.Lazy (ByteString)
+import Data.Int             (Int64)
+import Data.Maybe           (fromJust)
+import Data.Word            (Word8)
+import GHC.Exts             (IsList (..))
+import GHC.List             (errorEmptyList)
 import Text.Read
 
 import qualified Data.Bifunctor                as Bi
@@ -156,6 +156,7 @@ import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.ByteString.Lazy.Internal as BLI
 import qualified Prelude                       as P
+import Data.Tuple (swap)
 
 
 -- | Alias for 'Word8'. /Be cautious to only use/
@@ -234,11 +235,22 @@ instance Read BitString where
 -- \(\mathcal{O}(n)\) Creates a 'BitString' of length \(n\) filled
 -- with the given value.
 replicate :: Int64 -> Bool -> BitString
-replicate n b = packB $ P.replicate (fromIntegral n) b
+replicate n b = pack (P.replicate (fromIntegral n `mod` 8) x)
+    <> fromByteString (BL.replicate (n `div` 8) x)
+  where
+    x = fromIntegral $ fromEnum b
 
 -- \(\mathcal{O}(n)\) Reverses elements in a 'BitString'.
 reverse :: BitString -> BitString
-reverse = pack . P.reverse . unpack
+reverse (BitString _ 0 t) = fromByteString $ BL.map reverseWord $ BL.reverse t
+reverse bs = pack . P.reverse . unpack $ bs
+
+reverseWord :: Word8 -> Word8
+reverseWord = go 0 0
+  where
+    go :: Word8 -> Word8 -> Word8 -> Word8
+    go r 8 _ = r
+    go r c n = go (n `mod` 2 + r * 2) (c + 1) (n `div` 2)
 
 {-# Complete Empty, (:::) #-}
 -- | Pattern synonym for an empty 'BitString'.
@@ -254,9 +266,9 @@ pattern b:::bs <- (uncons -> Just (b, bs))
 -- | \(\mathcal{O}(n)\) Safe version of '(!)'.
 infixl 9 !?
 (!?) :: BitString -> Int64 -> Maybe Bit
-(!?) Empty _ = Nothing
-(!?) bs 0    = Just $ head bs
-(!?) bs n    = tail bs !? (n - 1)
+(!?) bs n = case drop n bs of
+    Empty -> Nothing
+    x     -> Just $ head x
 
 -- | \(\mathcal{O}(n)\) Gets nth bit from a 'BitString'. Throws an error
 -- in case of out-of-range index.
@@ -307,10 +319,10 @@ consB b bs = fromIntegral (fromEnum b) ::: bs
 {-# INLINE consB #-}
 
 -- | \(\mathcal{O}(n)\) Similar to 'cons', but appends the 'Bit' at the
--- end of the 'BitString'. Very inefficient as it requires rebuilding
--- the whole 'BitString'.
+-- end of the 'BitString'. Most efficient if the length of the 'BitString'
+-- is divisible by eight.
 snoc :: BitString -> Bit -> BitString
-snoc bs b = pack $ unpack bs ++ [b]
+snoc bs b = reverse $ b ::: reverse bs
 {-# INLINE snoc #-}
 
 -- | \(\mathcal{O}(n)\) Same as 'snoc', but takes 'Bool' as an argument.
@@ -345,7 +357,7 @@ length (BitString _ l t) = fromIntegral l + 8 * BL.length t
 
 -- | \(\mathcal{O}(n)\) Takes two 'BitString's and returns a tuple
 -- of two 'BitStrings', where the shorter one is padded with zeros so
--- its legnth match the longer one.
+-- its legnth matches the longer one.
 paddEqual :: BitString -> BitString -> (BitString, BitString)
 paddEqual Empty Empty = (Empty, Empty)
 paddEqual Empty bs    = (mapBytes (const 0) bs, bs)
@@ -358,6 +370,13 @@ paddEqual x y
     p = replicate n False
     n = abs $ length x - length y
 
+popBit :: Word8 -> (Bit, Word8)
+#ifdef BIGENDIAN
+popBit x = (x `mod` 2, x `div` 2)
+#else
+popBit x = (x `div` 2 ^ 7, x * 2)
+#endif
+
 -- | \(\mathcal{O}(1)\) Returns 'head' and 'tail' of a 'BitString',
 -- or 'Nothing' if empty.
 uncons :: BitString -> Maybe (Bit, BitString)
@@ -365,15 +384,11 @@ uncons Empty = Nothing
 uncons (BitString _ 0 t) = do
     (h, t) <- BL.uncons t
     uncons $ BitString h 8 t
-uncons (BitString h l t) = Just
-#ifdef BIGENDIAN
-    ( h `mod` 2, BitString (h `div` 2) (l - 1) t)
-#else
-    ( h `div` 2 ^ 7, BitString (h * 2) (l - 1) t)
-#endif
+uncons (BitString h l t) = let (tb, rb) = popBit h
+                           in  Just (tb, BitString rb (l - 1) t)
 {-# INLINE uncons #-}
 
--- | \(\mathcal{O}(1)\) Same as 'uncons', but uses 'Bool' instead of 'Bit'.
+-- | \(\mathcal{O}(1)\) Same as 'uncons', but returns 'Bool' instead of 'Bit'.
 unconsB :: BitString -> Maybe (Bool, BitString)
 unconsB bs = Bi.first (/=0) <$> uncons bs
 {-# INLINE unconsB #-}
@@ -381,10 +396,7 @@ unconsB bs = Bi.first (/=0) <$> uncons bs
 -- | \(\mathcal{O}(n)\) Returns 'init' and 'last' of a 'BitString',
 -- or 'Nothing' if empty.
 unsnoc :: BitString -> Maybe (BitString, Bit)
-unsnoc Empty = Nothing
-unsnoc bs = Just (pack $ P.init bits, P.last bits)
-  where
-    bits = unpack bs
+unsnoc bs = Bi.first reverse . swap <$> (uncons . reverse) bs
 {-# INLINE unsnoc #-}
 
 -- | \(\mathcal{O}(n)\) Same as 'unsnoc', but uses 'Bool' instead of 'Bit'.
@@ -399,7 +411,7 @@ init = fst . unsnocUnsafe
 
 -- | \(\mathcal{O}(n)\) Returns the last element of a 'BitString' as 'Bit'.
 last :: BitString -> Bit
-last = snd . unsnocUnsafe
+last = fst . popBit . BL.last . getT
 {-# INLINE last #-}
 
 -- | \(\mathcal{O}(n)\) Boolean equivalent for 'last'.
@@ -480,18 +492,17 @@ packB = P.foldr consB empty
 -- 'Integral' to a 'BitString'. Be aware that no padding
 -- is added for fixed sized integrals.
 fromNumber :: (Integral a) => a -> BitString
-fromNumber = pack . P.reverse . go
+fromNumber = reverse . go
   where
-    go :: (Integral a) => a -> [Word8]
-    go 0 = []
-    go n = (fromIntegral n `mod` 2) : go (n `div` 2)
+    go :: (Integral a) => a -> BitString
+    go 0 = empty
+    go n = (fromIntegral n `mod` 2) ::: go (n `div` 2)
 {-# INLINE fromNumber #-}
 
 -- | \(\mathcal{O}(1)\) Converts a 'BitString' to a lazy 'ByteString'.
 -- The 'BitString' is prepended with zeros if its length is not divisible by 8.
 toByteString :: BitString -> ByteString
 toByteString (BitString _ 0 t) = t
-toByteString (BitString h 8 t) = h `BL.cons` t
 toByteString bs                = toByteString $ 0 ::: bs
 {-# INLINE toByteString #-}
 
@@ -518,12 +529,12 @@ unpack (b:::bs) = b : unpack bs
 
 -- | \(\mathcal{O}(n)\) Converts a 'BitString' into a list of 'Bool's.
 unpackB :: BitString -> [Bool]
-unpackB = fmap (/=0) . unpack
+unpackB = P.map (/=0) . unpack
 {-# INLINE unpackB #-}
 
 -- | \(\mathcal{O}(n)\) Converts a 'BitString' into 'Integral'.
 toNumber :: (Integral a) => BitString -> a
-toNumber = P.foldl (\n b -> n * 2 + fromIntegral b) 0 . unpack
+toNumber = foldl (\n b -> n * 2 + fromIntegral (fromEnum b)) 0
 {-# INLINE toNumber #-}
 
 dropBits :: Int64 -> BitString -> BitString
@@ -537,19 +548,25 @@ dropBits n (_:::bs) = dropBits (n - 1) bs
 -- than the length of the 'BitString'.
 drop :: Int64 -> BitString -> BitString
 drop 0 bs    = bs
-drop _ Empty = empty
 drop n bs    = dropBits (n `mod` 8)
     $ uncurry fromByteStringPadded
     $ BL.drop (n `div` 8) <$> toByteStringPadded bs
 {-# INLINE drop #-}
 
--- | \(\mathcal{O}(n \cdot m)\) Drops \(n\) elements
--- from the end of the 'BitString'. Inefficient.
+dropEndBits :: Int64 -> BitString -> BitString
+dropEndBits 0 bs = bs
+dropEndBits n bs = case unsnoc bs of
+    Nothing     -> empty
+    Just (t, _) -> dropEndBits (n - 1) t
+{-# INLINE dropEndBits #-}
+
+-- | \(\mathcal{O}(m)\) Drops \(n\) elements
+-- from the end of the 'BitString'.
 dropEnd :: Int64 -> BitString -> BitString
 dropEnd 0 bs = bs
-dropEnd n bs = case unsnoc bs of
-    Nothing     -> empty
-    Just (t, _) -> dropEnd (n - 1) t
+dropEnd n bs = dropEndBits (n `mod` 8)
+    . uncurry fromByteStringPadded
+    $ BL.dropEnd (n `div` 8) <$> toByteStringPadded bs
 {-# INLINE dropEnd #-}
 
 takeBits :: Int64 -> BitString -> BitString
@@ -570,14 +587,20 @@ take n bs
         <> takeBits (n `mod` 8 + fromIntegral p) (fromByteString t)
   where
     (p, (i, t)) = BL.splitAt (n `div` 8) <$> toByteStringPadded bs
+{-# INLINE take #-}
 
--- | \(\mathcal{O}(n \cdot m)\) Takes \(n\) elements
--- from the end of the 'BitString'. Inefficient.
+-- | \(\mathcal{O}(n)\) Takes \(n\) elements
+-- from the end of the 'BitString'.
 takeEnd :: Int64 -> BitString -> BitString
+takeEnd _ Empty = empty
 takeEnd 0 _ = empty
-takeEnd n bs = case unsnoc bs of
-    Nothing     -> bs
-    Just (i, l) -> takeEnd (n - 1) i `snoc` l
+takeEnd n bs
+    | BL.null l && n >= length bs = bs
+    | BL.null l = drop (8 - fromIntegral p - n `mod` 8) $ fromByteStringPadded p r
+    | otherwise = drop (8 - n `mod` 8) $ fromByteString r
+  where
+    (p, (l, r)) = splitAtEndBL (n `div` 8 + 1) <$> toByteStringPadded bs
+    splitAtEndBL n bl = (BL.dropEnd n bl, BL.takeEnd n bl)
 {-# INLINE takeEnd #-}
 
 -- | \(\mathcal{O}(n)\), \(\Omega(n/c)\) Appends two 'BitString's.
@@ -649,26 +672,26 @@ packZipWithBytes f (BitString h1 l1 t1) (BitString h2 l2 t2) =
 
 -- | \(\mathcal{O}(n)\) Equivalent to 'Prelude' 'Prelude.foldr'.
 foldr :: (Bool -> a -> a) -> a -> BitString -> a
-foldr _ x Empty = x
-foldr f x bs    = f (headB bs) $ foldr f x (tail bs)
+foldr _ x Empty    = x
+foldr f x (b:::bs) = f (b /= 0) $ foldr f x bs
 {-# INLINE foldr #-}
 
 -- | \(\mathcal{O}(n)\) Like 'foldr', but strict in the accumulator.
 foldr' :: (Bool -> a -> a) -> a -> BitString -> a
-foldr' _ !x (BitString 0 0 BLI.Empty) = x
-foldr' f !x bs                        = f (headB bs) $ foldr' f x (tail bs)
+foldr' _ !x Empty    = x
+foldr' f !x (b:::bs) = f (b /= 0) $ foldr' f x bs
 {-# INLINE foldr' #-}
 
 -- | \(\mathcal{O}(n)\) Equivalent to 'Prelude' 'Prelude.foldl'.
 foldl :: (a -> Bool -> a) -> a -> BitString -> a
-foldl _ x Empty = x
-foldl f x bs    = f (foldl f x (tail bs)) $ headB bs
+foldl _ x Empty    = x
+foldl f x (b:::bs) = foldl f (f x (b /= 0)) bs
 {-# INLINE foldl #-}
 
 -- | \(\mathcal{O}(n)\) Like 'foldl', but strict in the accumulator.
 foldl' :: (a -> Bool -> a) -> a -> BitString -> a
-foldl' _ !x (BitString 0 0 BLI.Empty) = x
-foldl' f !x bs                        = f (foldl' f x (tail bs)) $ headB bs
+foldl' _ !x Empty    = x
+foldl' f !x (b:::bs) = foldl' f (f x (b /= 0)) bs
 {-# INLINE foldl' #-}
 
 -- | \(\mathcal{O}(n)\) @'splitAt' n xs@ is equivalent
