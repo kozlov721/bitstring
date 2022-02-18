@@ -26,10 +26,10 @@ dependencies:
 
 library:
   source-dirs: src
-  dependencies:
-  - template-haskell
   ghc-options:
     - -O2
+    - -Wall
+    - -Wextra
 
 tests:
   bitstring-test:
