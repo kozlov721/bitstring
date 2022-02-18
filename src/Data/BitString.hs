@@ -225,6 +225,7 @@ instance Read BitString where
       (xs, t) <- reads r
       return (pack xs, t)
 #endif
+
 -- \(\mathcal{O}(n)\) Creates a 'BitString' of length \(n\) filled
 -- with the given value.
 replicate :: Int64 -> Bool -> BitString
@@ -301,8 +302,8 @@ consB b bs = fromIntegral (fromEnum b) ::: bs
 {-# INLINE consB #-}
 
 -- | \(\mathcal{O}(n)\) Similar to 'cons', but appends the 'Bit' at the
--- end of the 'BitString'. Very inneficient as it requires rebuilding
--- the wole 'BitString'.
+-- end of the 'BitString'. Very inefficient as it requires rebuilding
+-- the whole 'BitString'.
 snoc :: BitString -> Bit -> BitString
 snoc bs b = pack $ unpack bs ++ [b]
 {-# INLINE snoc #-}
@@ -386,20 +387,20 @@ lastB :: BitString -> Bool
 lastB = (/=0) . last
 {-# INLINE lastB #-}
 
--- | \(\mathcal{O}(1)\) unsafe version of 'uncons'.
+-- | \(\mathcal{O}(1)\) Unsafe version of 'uncons'.
 -- Throws an error in case of an empty 'BitString'.
 unconsUnsafe :: BitString -> (Bit, BitString)
 unconsUnsafe Empty    = errorEmptyList "unconsUnsafe"
 unconsUnsafe (b:::bs) = (b, bs)
 {-# INLINE unconsUnsafe #-}
 
--- | \(\mathcal{O}(1)\) unsafe version of 'unconsB'.
+-- | \(\mathcal{O}(1)\) Unsafe version of 'unconsB'.
 -- Throws an error in case of an empty 'BitString'.
 unconsUnsafeB :: BitString -> (Bool, BitString)
 unconsUnsafeB = Bi.first (/=0) . unconsUnsafe
 {-# INLINE unconsUnsafeB #-}
 
--- | \(\mathcal{O}(1)\) unsafe version of 'unsnoc'.
+-- | \(\mathcal{O}(1)\) Unsafe version of 'unsnoc'.
 -- Throws an error in case of an empty 'BitString'.
 unsnocUnsafe :: BitString -> (BitString, Bit)
 unsnocUnsafe bs = case unsnoc bs of
@@ -407,56 +408,57 @@ unsnocUnsafe bs = case unsnoc bs of
     Nothing -> errorEmptyList "unsnocUnsafe"
 {-# INLINE unsnocUnsafe #-}
 
--- | \(\mathcal{O}(1)\) unsafe version of 'unsnocB'.
+-- | \(\mathcal{O}(1)\) Unsafe version of 'unsnocB'.
 -- Throws an error in case of an empty 'BitString'.
 unsnocUnsafeB :: BitString -> (BitString, Bool)
 unsnocUnsafeB = Bi.second (/=0) . unsnocUnsafe
 {-# INLINE unsnocUnsafeB #-}
 
--- | \(\mathcal{O}(1)\) checks whether 'BitString' is empty or not.
+-- | \(\mathcal{O}(1)\) Checks whether 'BitString' is empty or not.
 null :: BitString -> Bool
 null (BitString _ 0 t) = BL.null t
 null _                 = False
 {-# INLINE null #-}
 
--- | \(\mathcal{O}(1)\) constructs an empty 'BitString'.
+-- | \(\mathcal{O}(1)\) Constructs an empty 'BitString'.
 empty :: BitString
 empty = Empty
 {-# INLINE empty #-}
 
--- | \(\mathcal{O}(1)\) converts one bit into a 'BitString'.
+-- | \(\mathcal{O}(1)\) Converts one bit into a 'BitString'.
 singleton :: Bit -> BitString
 singleton = (:::empty)
 {-# INLINE singleton #-}
 
--- | \(\mathcal{O}(1)\) converts a lazy 'ByteString' into a 'BitString'.
+-- | \(\mathcal{O}(1)\) Converts a lazy 'ByteString' into a 'BitString'.
 fromByteString :: ByteString -> BitString
 fromByteString = BitString 0 0
 {-# INLINE fromByteString #-}
 
--- | \(\mathcal{O}(1)\) converts a lazy 'ByteString' into a 'BitString'.
+-- | \(\mathcal{O}(1)\) Converts a lazy 'ByteString' into a 'BitString'.
 fromByteStringStrict :: BS.ByteString -> BitString
 fromByteStringStrict = BitString 0 0 . BL.fromStrict
 {-# INLINE fromByteStringStrict #-}
 
--- | \(\mathcal{O}(c)\) reverse of 'toByteStringPadded'. Returns 'empty'
+-- | \(\mathcal{O}(c)\) Reverse of 'toByteStringPadded'. Returns 'empty'
 -- in case the provided padding is greater than the size of the 'BitString'.
 fromByteStringPadded :: Word8 -> ByteString -> BitString
 fromByteStringPadded n bl = drop (fromIntegral n) $ fromByteString bl
 {-# INLINE fromByteStringPadded #-}
 
--- | \(\mathcal{O}(n)\) constructs a 'BitString' from a list of 'Bit's.
+-- | \(\mathcal{O}(n)\) Constructs a 'BitString' from a list of 'Bit's.
 pack :: [Bit] -> BitString
 pack = P.foldr cons empty
 {-# INLINE pack #-}
 
--- | \(\mathcal{O}(n)\) constructs a 'BitString' from a list of 'Bool's.
+-- | \(\mathcal{O}(n)\) Constructs a 'BitString' from a list of 'Bool's.
 packB :: [Bool] -> BitString
 packB = P.foldr consB empty
 {-# INLINE packB #-}
 
--- | Converts an instance of 'Integral' to a 'BitString'. Be aware that no
--- padding is added for fixed sized integrals.
+-- | \(\mathcal{O}(\log n)\) Converts an instance of
+-- 'Integral' to a 'BitString'. Be aware that no padding
+-- is added for fixed sized integrals.
 fromNumber :: (Integral a) => a -> BitString
 fromNumber = pack . P.reverse . go
   where
@@ -511,7 +513,7 @@ drop _ Empty    = Empty
 drop n (_:::bs) = drop (n - 1) bs
 {-# INLINE drop #-}
 
--- | \(\mathcal{O}(n \cdot m)\) Drops \(n\) elemnets
+-- | \(\mathcal{O}(n \cdot m)\) Drops \(n\) elements
 -- from the end of the 'BitString'. Inefficient.
 dropEnd :: Int64 -> BitString -> BitString
 dropEnd 0 bs = bs
@@ -529,7 +531,7 @@ take 0 bs       = empty
 take n (b:::bs) = b ::: take (n - 1) bs
 {-# INLINE take #-}
 
--- | \(\mathcal{O}(n \cdot m)\) Takes \(n\) elemnets
+-- | \(\mathcal{O}(n \cdot m)\) Takes \(n\) elements
 -- from the end of the 'BitString'. Inefficient.
 takeEnd :: Int64 -> BitString -> BitString
 takeEnd 0 bs = empty
@@ -538,7 +540,7 @@ takeEnd n bs = case unsnoc bs of
     Just (i, l) -> takeEnd (n - 1) i `snoc` l
 {-# INLINE takeEnd #-}
 
--- | \(\mathcal{O}(n)\), \(\Omega(n/c)\) appends two 'BitString's.
+-- | \(\mathcal{O}(n)\), \(\Omega(n/c)\) Appends two 'BitString's.
 -- In general not very efficient if length of the latter 'BitString' is not
 -- divisible by 8.
 append :: BitString -> BitString -> BitString
@@ -559,7 +561,7 @@ mapBytes _ Empty             = empty
 mapBytes f (BitString h l t) = BitString (f h) l $ BL.map f t
 {-# INLINE mapBytes #-}
 
--- | \(\mathcal{O}(\min(n, m))\) Takes two 'BitStrings' and returns a list
+-- | \(\mathcal{O}(\min(n, m))\) Takes two 'BitString's and returns a list
 -- of pairs of 'Bit's. If one 'BitString' is longer, its last elements are
 -- discarded.
 zip :: BitString -> BitString -> [(Word8, Word8)]
@@ -576,7 +578,7 @@ zipB _ Empty = []
 zipB x y     = (headB x, headB y) : zipB (tail x) (tail y)
 {-# INLINE zipB #-}
 
--- I don't see much use, but why not.
+-- I don't see much use for this, but why not.
 -- | \(\mathcal{O}(\min(n, m))\) Equivalent to 'Prelude' 'Prelude.zipWith'
 -- for 'BitString's.
 zipWith :: (Bool -> Bool -> a) -> BitString -> BitString -> [a]
@@ -586,7 +588,7 @@ zipWith f x y     = f (headB x) (headB y) : zipWith f (tail x) (tail y)
 {-# INLINE zipWith #-}
 
 -- | \(\mathcal{O}(\min(n, m))\) Generalized version of 'zipWith'.
--- Takes two 'BitStrings' and a binary function on 'Bool's and returns new
+-- Takes two 'BitString's and a binary function on 'Bool's and returns new
 -- 'BitString'.
 packZipWith :: (Bool -> Bool -> Bool) -> BitString -> BitString -> BitString
 packZipWith _ Empty _ = empty
@@ -640,7 +642,7 @@ splitAtEnd :: Int64 -> BitString -> (BitString, BitString)
 splitAtEnd n bs = (dropEnd n bs, takeEnd n bs)
 {-# INLINE splitAtEnd #-}
 
--- | Read a file into a 'BitString'.
+-- | Reads a file into a 'BitString'.
 readFile :: FilePath -> IO BitString
 readFile = fromByteString <.> BL.readFile
 {-# INLINE readFile #-}
