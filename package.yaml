@@ -42,3 +42,16 @@ tests:
     - HUnit
     - extra
     - QuickCheck
+  bitstring-bigendian-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -DBIGENDIAN
+    dependencies:
+    - bitstring
+    - HUnit
+    - extra
+    - QuickCheck
