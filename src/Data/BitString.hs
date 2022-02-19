@@ -145,7 +145,8 @@ import Prelude hiding
 import Data.Bits
 import Data.ByteString.Lazy (ByteString)
 import Data.Int             (Int64)
-import Data.Maybe           (fromJust)
+import Data.Maybe           (fromJust, isNothing)
+import Data.Tuple           (swap)
 import Data.Word            (Word8)
 import GHC.Exts             (IsList (..))
 import GHC.List             (errorEmptyList)
@@ -156,7 +157,6 @@ import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.ByteString.Lazy.Internal as BLI
 import qualified Prelude                       as P
-import Data.Tuple (swap)
 
 
 -- | Alias for 'Word8'. /Be cautious to only use/
@@ -239,12 +239,27 @@ replicate n b = pack (P.replicate (fromIntegral n `mod` 8) x)
     <> fromByteString (BL.replicate (n `div` 8) x)
   where
     x = fromIntegral $ fromEnum b
+{-# INLINE replicate #-}
 
--- \(\mathcal{O}(n)\) Reverses elements in a 'BitString'.
+-- \(\mathcal{O}(n)\) Reverses elements in a 'BitString'. Fairly efficient
+-- when the length of the 'BitString' is divisible by 8.
 reverse :: BitString -> BitString
 reverse (BitString _ 0 t) = fromByteString $ BL.map reverseWord $ BL.reverse t
-reverse bs = pack . P.reverse . unpack $ bs
+-- slightly faster than `pack . P.reverse . unpack $ bs`, but not very pretty
+reverse bs = uncurry go
+    $ BL.map reverseWord . BL.reverse <$> toByteStringPadded bs
+  where
+    go :: Word8 -> ByteString -> BitString
+    go p bl
+        | BL.null t = take (fromIntegral (8 - p)) $ fromNumberPadded h
+        | otherwise = appendWord h 0 $ go p t
+        where Just (h, t) = BL.uncons bl
+    appendWord :: Word8 -> Word8 -> BitString -> BitString
+    appendWord _ 8 bs = bs
+    appendWord n s bs = (n `div` 2 ^ 7) ::: appendWord (n * 2) (s + 1) bs
+{-# INLINE reverse #-}
 
+-- | Reverses bits in a 'Word8'.
 reverseWord :: Word8 -> Word8
 reverseWord = go 0 0
   where
@@ -271,7 +286,7 @@ infixl 9 !?
     x     -> Just $ head x
 
 -- | \(\mathcal{O}(n)\) Gets nth bit from a 'BitString'. Throws an error
--- in case of out-of-range index.
+-- in case of an out-of-range index.
 infixl 9 !
 (!) :: BitString -> Int64 -> Bit
 (!) Empty _ = errorEmptyList "(!)"
@@ -356,8 +371,8 @@ length (BitString _ l t) = fromIntegral l + 8 * BL.length t
 {-# INLINE length #-}
 
 -- | \(\mathcal{O}(n)\) Takes two 'BitString's and returns a tuple
--- of two 'BitStrings', where the shorter one is padded with zeros so
--- its legnth matches the longer one.
+-- of two 'BitString's, where the shorter one is padded with zeros so
+-- its length matches the longer one.
 paddEqual :: BitString -> BitString -> (BitString, BitString)
 paddEqual Empty Empty = (Empty, Empty)
 paddEqual Empty bs    = (mapBytes (const 0) bs, bs)
@@ -492,12 +507,22 @@ packB = P.foldr consB empty
 -- 'Integral' to a 'BitString'. Be aware that no padding
 -- is added for fixed sized integrals.
 fromNumber :: (Integral a) => a -> BitString
-fromNumber = reverse . go
+fromNumber = pack . P.reverse . go
   where
-    go :: (Integral a) => a -> BitString
-    go 0 = empty
-    go n = (fromIntegral n `mod` 2) ::: go (n `div` 2)
+    go :: (Integral a) => a -> [Word8]
+    go 0 = []
+    go n = (fromIntegral n `mod` 2) : go (n `div` 2)
 {-# INLINE fromNumber #-}
+
+fromNumberPadded :: (Bits a, Integral a) => a -> BitString
+fromNumberPadded n
+    | isNothing (bitSizeMaybe n) = fromNumber n
+    | otherwise = go n s
+  where
+    Just s = bitSizeMaybe n
+    go :: (Integral a) => a -> Int -> BitString
+    go _ 0 = Empty
+    go n x = fromIntegral (n `div` 2 ^ (s - 1)) ::: go (n * 2) (x - 1)
 
 -- | \(\mathcal{O}(1)\) Converts a 'BitString' to a lazy 'ByteString'.
 -- The 'BitString' is prepended with zeros if its length is not divisible by 8.
