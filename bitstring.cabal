@@ -44,7 +44,8 @@ test-suite bitstring-bigendian-test
       Paths_bitstring
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -DBIGENDIAN
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  cpp-options: -DBIGENDIAN
   build-depends:
       HUnit
     , QuickCheck
