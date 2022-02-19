@@ -6,12 +6,31 @@ cabal-version: 1.12
 
 name:           bitstring
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/kozlov721/bitstring#readme>
+synopsis:       Compact and efficient wrapper around lazy bytestring
+description:    Fast and simple implementation of bit strings. 'BitString' is a wrapper
+                around @Data.ByteString.Lazy@. It makes possible to build 'ByteString'
+                from single bits. It also allows for a fast conversion from and to
+                'ByteString' and implements similar API. It is therefore easy to use together
+                with 'ByteString's for tasks like parsing binary headers, constructing
+                codes etc.
+                .
+                Two versions of 'BitString's are provided:
+                .
+                  * @Data.BitString@ for classical usage.
+                .
+                  * @Data.BitString.BigEndian@, which stores bytes in the bytestring in
+                  big-endian format.
+                .
+                These modules are intended to be imported @qualified@, to avoid name
+                clashes with 'Prelude' functions, e.g.
+                .
+                > import qualified Data.BitString as BS
+category:       Data
 homepage:       https://github.com/kozlov721/bitstring#readme
 bug-reports:    https://github.com/kozlov721/bitstring/issues
-author:         Martin Kozlovský
+author:         Martin Kozlovsky
 maintainer:     kozlovsky.m7@gmail.com
-copyright:      2022 Martin Kozlovský
+copyright:      2022 Martin Kozlovsky
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple

@@ -20,11 +20,11 @@
 -- Stability   : unstable
 -- Portability : portable
 --
--- A simple and convenient implementation of bit vectors using a wrapper
+-- Simple and convenient implementation of bit vectors using a wrapper
 -- around 'Data.ByteString.Lazy'.
 --
 -- This module is intended to be imported @qualified@, to avoid name
--- clashes with "Prelude" functions, e.g.
+-- clashes with 'Prelude' functions, e.g.
 --
 #ifdef BIGENDIAN
 -- > import qualified Data.BitString.BigEndian as BSE
