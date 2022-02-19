@@ -643,7 +643,8 @@ dropEnd n bs = dropEndBits (n `mod` 8)
 stripBytes :: (BitString -> ByteString) -> Bit -> BitString -> BitString
 stripBytes _ _ Empty = empty
 stripBytes f b bs
-    | BL.head bl == b = go b . fromByteString . BL.dropWhile (==255*b) $ bl
+    | BL.head bl == 255 * b =
+        go b . fromByteString . BL.dropWhile (==255*b) $ bl
     | otherwise       = go b bs
   where
     bl = f bs
@@ -656,7 +657,8 @@ stripBytes f b bs
 stripBytesEnd :: (BitString -> ByteString) -> Bit -> BitString -> BitString
 stripBytesEnd _ _ Empty = empty
 stripBytesEnd f b bs
-    | BL.last bl == b = go b . fromByteString . BL.dropWhileEnd (==255*b) $ bl
+    | BL.last bl == 255 * b =
+        go b . fromByteString . BL.dropWhileEnd (==255*b) $ bl
     | otherwise       = go b bs
   where
     bl = f bs
