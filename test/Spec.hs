@@ -6,12 +6,12 @@ import Control.Monad (void)
 #ifdef BIGENDIAN
 import Data.BitString.BigEndian (BitString)
 #else
-import Data.BitString           (BitString)
+import Data.BitString (BitString)
 #endif
 
 import Data.Bits
 import Data.Int        (Int64)
-import Data.List       (isInfixOf, dropWhileEnd)
+import Data.List       (dropWhileEnd, isInfixOf)
 import Data.List.Extra (dropEnd, splitAtEnd, takeEnd)
 import Data.Maybe      (fromJust, isNothing)
 import Data.Word
@@ -24,7 +24,7 @@ import qualified Data.Bifunctor as Bi
 #ifdef BIGENDIAN
 import qualified Data.BitString.BigEndian as BS
 #else
-import qualified Data.BitString           as BS
+import qualified Data.BitString as BS
 #endif
 
 import qualified Data.ByteString      as BSS

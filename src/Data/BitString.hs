@@ -626,8 +626,8 @@ drop n bs    = dropBits (n `mod` 8)
 {-# INLINE drop #-}
 
 dropEndBits :: Int64 -> BitString -> BitString
-dropEndBits _ Empty = empty
-dropEndBits 0 bs = bs
+dropEndBits _ Empty    = empty
+dropEndBits 0 bs       = bs
 dropEndBits n (bs:-:_) = dropEndBits (n - 1) bs
 {-# INLINE dropEndBits #-}
 
