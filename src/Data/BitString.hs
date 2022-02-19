@@ -819,7 +819,7 @@ splitAt :: Int64 -> BitString -> (BitString , BitString)
 splitAt n bs = (take n bs, drop n bs)
 {-# INLINE splitAt #-}
 
--- | \(\mathcal{O}(n \cdot m)\) @'splitAtEnd' n xs@ is equivalent
+-- | \(\mathcal{O}(n)\) @'splitAtEnd' n xs@ is equivalent
 -- to @('dropEnd' n xs, 'takeEnd' n xs)@.
 splitAtEnd :: Int64 -> BitString -> (BitString, BitString)
 splitAtEnd n bs = (dropEnd n bs, takeEnd n bs)
