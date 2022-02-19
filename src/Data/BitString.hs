@@ -72,6 +72,7 @@ module MODULE
     , fromByteStringStrict
     , fromByteStringPadded
     , fromNumber
+    , fromNumberPadded
     , pack
     , packB
     , replicate
@@ -256,7 +257,8 @@ reverse bs = uncurry go
         where Just (h, t) = BL.uncons bl
     appendWord :: Word8 -> Word8 -> BitString -> BitString
     appendWord _ 8 bs = bs
-    appendWord n s bs = (n `div` 2 ^ 7) ::: appendWord (n * 2) (s + 1) bs
+    appendWord n s bs = let (h, t) = popBit n
+                        in  h ::: appendWord t (s + 1) bs
 {-# INLINE reverse #-}
 
 -- | Reverses bits in a 'Word8'.
@@ -298,7 +300,9 @@ infixl 9 !
 findSubstring :: BitString   -- ^ The string to search for
               -> BitString   -- ^ The string to search in
               -> Maybe Int64 -- ^ The index of the first substring, if exists
-findSubstring _ Empty = Nothing
+findSubstring Empty Empty = Just 0
+findSubstring Empty _     = Just 0
+findSubstring _     Empty = Nothing
 findSubstring p w
     | lookup p w = Just 0
     | otherwise = (+1) <$> findSubstring p (tail w)
@@ -386,10 +390,13 @@ paddEqual x y
     n = abs $ length x - length y
 
 popBit :: Word8 -> (Bit, Word8)
+popBit n = popBitN n 8
+
+popBitN :: (Bits a, Integral a) => a -> Int -> (a, a)
 #ifdef BIGENDIAN
-popBit x = (x `mod` 2, x `div` 2)
+popBitN n s = (n `mod` 2, n `div` 2)
 #else
-popBit x = (x `div` 2 ^ 7, x * 2)
+popBitN n s = (n `div` 2 ^ (s - 1), n * 2)
 #endif
 
 -- | \(\mathcal{O}(1)\) Returns 'head' and 'tail' of a 'BitString',
@@ -507,22 +514,31 @@ packB = P.foldr consB empty
 -- 'Integral' to a 'BitString'. Be aware that no padding
 -- is added for fixed sized integrals.
 fromNumber :: (Integral a) => a -> BitString
+#ifdef BIGENDIAN
+fromNumber = pack . go
+#else
 fromNumber = pack . P.reverse . go
+#endif
   where
     go :: (Integral a) => a -> [Word8]
     go 0 = []
     go n = (fromIntegral n `mod` 2) : go (n `div` 2)
 {-# INLINE fromNumber #-}
 
+
+-- | \(\mathcal{O}(\log n)\) An alternative to 'fromNumber' for fixed size
+-- integrals. Leading zeros are added so that the length
+-- of the resulting 'BitString' is equivalent to @'bitSize' n@.
 fromNumberPadded :: (Bits a, Integral a) => a -> BitString
 fromNumberPadded n
     | isNothing (bitSizeMaybe n) = fromNumber n
     | otherwise = go n s
   where
     Just s = bitSizeMaybe n
-    go :: (Integral a) => a -> Int -> BitString
+    go :: (Bits a, Integral a) => a -> Int -> BitString
     go _ 0 = Empty
-    go n x = fromIntegral (n `div` 2 ^ (s - 1)) ::: go (n * 2) (x - 1)
+    go n x = let (h, t) = popBitN n s
+             in  fromIntegral h ::: go t (x - 1)
 
 -- | \(\mathcal{O}(1)\) Converts a 'BitString' to a lazy 'ByteString'.
 -- The 'BitString' is prepended with zeros if its length is not divisible by 8.
@@ -559,7 +575,11 @@ unpackB = P.map (/=0) . unpack
 
 -- | \(\mathcal{O}(n)\) Converts a 'BitString' into 'Integral'.
 toNumber :: (Integral a) => BitString -> a
+#ifdef BIGENDIAN
+toNumber = foldr (\b n -> n * 2 + fromIntegral (fromEnum b)) 0
+#else
 toNumber = foldl (\n b -> n * 2 + fromIntegral (fromEnum b)) 0
+#endif
 {-# INLINE toNumber #-}
 
 dropBits :: Int64 -> BitString -> BitString
@@ -782,9 +802,9 @@ from01List = pack
 -- 'ByteString'. /Warning: No boundary checks are performed!/
 unsafeBitString' :: Int64 -- ^ offset
                  -> Int64 -- ^ length
-                 -> ByteString -- ^ source
+                 -> BS.ByteString -- ^ source
                  -> BitString
-unsafeBitString' o l bs = fromByteString $ BL.take l $ BL.drop o bs
+unsafeBitString' o l = fromByteString . BL.take l . BL.drop o . BL.fromStrict
 {-# INLINE unsafeBitString' #-}
 
 {-# DEPRECATED realizeBitStringStrict "Use 'toByteStringStrict' instead" #-}
