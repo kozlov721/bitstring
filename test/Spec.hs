@@ -11,7 +11,7 @@ import Data.BitString           (BitString)
 
 import Data.Bits
 import Data.Int        (Int64)
-import Data.List       (isInfixOf)
+import Data.List       (isInfixOf, dropWhileEnd)
 import Data.List.Extra (dropEnd, splitAtEnd, takeEnd)
 import Data.Maybe      (fromJust, isNothing)
 import Data.Word
@@ -140,6 +140,17 @@ simpleTests =
         ~: dropEnd n b ~=? BS.unpack (BS.dropEnd (fromIntegral n) (BS.pack b))
     | b <- [toBinary n | n <- [0..50]]
     , n <- [0..10]
+    ] ++ concat [
+        [ "strip" ~: show bits ++ " " ++ show b
+            ~: BS.pack (dropWhile (==b) bits) ~=? (f . BS.pack) bits
+        | bits <- [toBinary n | n <- [0..200]]
+        ] ++
+        [ "stripEnd" ~: show bits ++ " " ++ show b
+            ~: BS.pack (dropWhileEnd (==b) bits) ~=? (g . BS.pack) bits
+        | bits <- [toBinary n | n <- [0..200]]
+        ] | (f, g, b) <- [ (BS.stripOnes,  BS.stripOnesEnd,  1)
+                         , (BS.stripZeros, BS.stripZerosEnd, 0)
+                         ]
     ] ++
     [ "splitAt" ~: show n ++ " " ++ show b
         ~: splitAt n b

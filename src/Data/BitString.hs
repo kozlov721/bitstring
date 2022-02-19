@@ -77,6 +77,7 @@ module MODULE
     , packB
     , replicate
     , toByteString
+    , toByteStringOnes
     , toByteStringStrict
     , toByteStringPadded
     , toNumber
@@ -87,6 +88,10 @@ module MODULE
     , drop
     , takeEnd
     , dropEnd
+    , stripZeros
+    , stripOnes
+    , stripZerosEnd
+    , stripOnesEnd
     , splitAt
     , splitAtEnd
       -- * Combining 'BitString's
@@ -239,7 +244,7 @@ replicate :: Int64 -> Bool -> BitString
 replicate n b = pack (P.replicate (fromIntegral n `mod` 8) x)
     <> fromByteString (BL.replicate (n `div` 8) x)
   where
-    x = fromIntegral $ fromEnum b
+    x = fromIntegral $ 255 * fromEnum b
 {-# INLINE replicate #-}
 
 -- | \(\mathcal{O}(n)\) Reverses elements in a 'BitString'. Fairly efficient
@@ -276,9 +281,16 @@ pattern Empty = BitString 0 0 BLI.Empty
 
 -- | \(\mathcal{O}(1)\) Pattern synonym for 'cons'.
 infixr 5 :::
-pattern (:::) :: Word8 -> BitString -> BitString
+pattern (:::) :: Bit -> BitString -> BitString
 pattern b:::bs <- (uncons -> Just (b, bs))
   where b:::bs = cons b bs
+
+-- Not for export
+{-# Complete Empty, (:-:) #-}
+infixl 5 :-:
+pattern (:-:) :: BitString -> Bit -> BitString
+pattern bs:-:b <- (unsnoc -> Just (bs, b))
+  where bs:-:b = snoc bs b
 
 -- | \(\mathcal{O}(n)\) Safe version of '(!)'.
 infixl 9 !?
@@ -457,9 +469,8 @@ unconsUnsafeB = Bi.first (/=0) . unconsUnsafe
 -- | \(\mathcal{O}(1)\) Unsafe version of 'unsnoc'.
 -- Throws an error in case of an empty 'BitString'.
 unsnocUnsafe :: BitString -> (BitString, Bit)
-unsnocUnsafe bs = case unsnoc bs of
-    Just x  -> x
-    Nothing -> errorEmptyList "unsnocUnsafe"
+unsnocUnsafe Empty    = errorEmptyList "unsnocUnsafe"
+unsnocUnsafe (bs:-:b) = (bs, b)
 {-# INLINE unsnocUnsafe #-}
 
 -- | \(\mathcal{O}(1)\) Unsafe version of 'unsnocB'.
@@ -547,6 +558,13 @@ toByteString (BitString _ 0 t) = t
 toByteString bs                = toByteString $ 0 ::: bs
 {-# INLINE toByteString #-}
 
+-- | \(\mathcal{O}(1)\) Same as 'toByteString', but the 'BitString' is
+-- prepended with ones.
+toByteStringOnes :: BitString -> ByteString
+toByteStringOnes (BitString _ 0 t) = t
+toByteStringOnes bs                = toByteStringOnes $ 1 ::: bs
+{-# INLINE toByteStringOnes #-}
+
 -- | \(\mathcal{O}(1)\) Converts a 'BitString' to a strict 'ByteString'.
 -- The 'BitString' is prepended with zeros if its length is not divisible by 8.
 toByteStringStrict :: BitString -> BS.ByteString
@@ -561,6 +579,15 @@ toByteStringPadded bs
     | getL bs == 0 = (0, toByteString bs)
     | otherwise    = (8 - getL bs, toByteString bs)
 {-# INLINE toByteStringPadded #-}
+
+-- | \(\mathcal{O}(1)\) Same as 'toByteStringPadded', but prepends the
+-- 'BitString' with ones.
+toByteStringPaddedOnes :: BitString -> (Word8, ByteString)
+toByteStringPaddedOnes Empty = (0, BL.empty)
+toByteStringPaddedOnes bs
+    | getL bs == 0 = (0, toByteStringOnes bs)
+    | otherwise    = (8 - getL bs, toByteStringOnes bs)
+{-# INLINE toByteStringPaddedOnes #-}
 
 -- | \(\mathcal{O}(n)\) Converts a 'BitString' into a list of 'Bit's.
 unpack :: BitString -> [Word8]
@@ -599,10 +626,9 @@ drop n bs    = dropBits (n `mod` 8)
 {-# INLINE drop #-}
 
 dropEndBits :: Int64 -> BitString -> BitString
+dropEndBits _ Empty = empty
 dropEndBits 0 bs = bs
-dropEndBits n bs = case unsnoc bs of
-    Nothing     -> empty
-    Just (t, _) -> dropEndBits (n - 1) t
+dropEndBits n (bs:-:_) = dropEndBits (n - 1) bs
 {-# INLINE dropEndBits #-}
 
 -- | \(\mathcal{O}(m)\) Drops \(n\) elements
@@ -613,6 +639,52 @@ dropEnd n bs = dropEndBits (n `mod` 8)
     . uncurry fromByteStringPadded
     $ BL.dropEnd (n `div` 8) <$> toByteStringPadded bs
 {-# INLINE dropEnd #-}
+
+stripBytes :: (BitString -> ByteString) -> Bit -> BitString -> BitString
+stripBytes _ _ Empty = empty
+stripBytes f b bs
+    | BL.head bl == b = go b . fromByteString . BL.dropWhile (==255*b) $ bl
+    | otherwise       = go b bs
+  where
+    bl = f bs
+    go :: Bit -> BitString -> BitString
+    go _ Empty = empty
+    go n (b:::bs)
+        | b == n    = go n bs
+        | otherwise = b:::bs
+
+stripBytesEnd :: (BitString -> ByteString) -> Bit -> BitString -> BitString
+stripBytesEnd _ _ Empty = empty
+stripBytesEnd f b bs
+    | BL.last bl == b = go b . fromByteString . BL.dropWhileEnd (==255*b) $ bl
+    | otherwise       = go b bs
+  where
+    bl = f bs
+    go :: Bit -> BitString -> BitString
+    go _ Empty = empty
+    go n (bs:-:b)
+        | b == n    = go n bs
+        | otherwise = bs:-:b
+
+-- | \(\mathcal{O}(c)\) Strips off all leading zeros.
+stripZeros :: BitString -> BitString
+stripZeros = stripBytes toByteString 0
+{-# INLINE stripZeros #-}
+
+-- | \(\mathcal{O}(c)\) Strips off all leading ones.
+stripOnes :: BitString -> BitString
+stripOnes = stripBytes toByteStringOnes 1
+{-# INLINE stripOnes #-}
+
+-- | \(\mathcal{O}(n)\) Strips off all trailing zeros.
+stripZerosEnd :: BitString -> BitString
+stripZerosEnd = stripBytesEnd toByteString 0
+{-# INLINE stripZerosEnd #-}
+
+-- | \(\mathcal{O}(n)\) Strips off all trailing ones.
+stripOnesEnd :: BitString -> BitString
+stripOnesEnd = stripBytesEnd toByteStringOnes 1
+{-# INLINE stripOnesEnd #-}
 
 takeBits :: Int64 -> BitString -> BitString
 takeBits _ Empty    = empty
