@@ -233,7 +233,7 @@ instance Read BitString where
       return (pack xs, t)
 #endif
 
--- \(\mathcal{O}(n)\) Creates a 'BitString' of length \(n\) filled
+-- | \(\mathcal{O}(n)\) Creates a 'BitString' of length \(n\) filled
 -- with the given value.
 replicate :: Int64 -> Bool -> BitString
 replicate n b = pack (P.replicate (fromIntegral n `mod` 8) x)
@@ -242,7 +242,7 @@ replicate n b = pack (P.replicate (fromIntegral n `mod` 8) x)
     x = fromIntegral $ fromEnum b
 {-# INLINE replicate #-}
 
--- \(\mathcal{O}(n)\) Reverses elements in a 'BitString'. Fairly efficient
+-- | \(\mathcal{O}(n)\) Reverses elements in a 'BitString'. Fairly efficient
 -- when the length of the 'BitString' is divisible by 8.
 reverse :: BitString -> BitString
 reverse (BitString _ 0 t) = fromByteString $ BL.map reverseWord $ BL.reverse t
