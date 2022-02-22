@@ -163,6 +163,7 @@ import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.ByteString.Lazy.Internal as BLI
 import qualified Prelude                       as P
+import Data.List.Split (chunksOf)
 
 
 -- | Alias for 'Word8'. /Be cautious to only use/
@@ -484,13 +485,27 @@ fromByteStringStrict = BitString 0 0 . BL.fromStrict
 fromByteStringPadded :: Word8 -> ByteString -> BitString
 fromByteStringPadded n bl = dropBits (fromIntegral n) $ fromByteString bl
 
+toWord8 :: [Bit] -> Word8
+#ifdef BIGENDIAN
+toWord8 = P.foldr (\b n -> 2 * n + b) 0
+#else
+toWord8 = P.foldl (\n b -> 2 * n + b) 0
+#endif
+
 -- | \(\mathcal{O}(n)\) Constructs a 'BitString' from a list of 'Bit's.
 pack :: [Bit] -> BitString
-pack = P.foldr cons empty
+pack bits = addRest
+    . fromByteString
+    . BL.pack
+    . P.map toWord8
+    . chunksOf 8 $ pos
+  where
+    (pre, pos) = P.splitAt (P.length bits `mod` 8) bits
+    addRest bs = P.foldr cons bs pre
 
 -- | \(\mathcal{O}(n)\) Constructs a 'BitString' from a list of 'Bool's.
 packB :: [Bool] -> BitString
-packB = P.foldr consB empty
+packB = pack . P.map (fromIntegral . fromEnum)
 
 -- | \(\mathcal{O}(\log n)\) Converts an instance of
 -- 'Integral' to a 'BitString'. Be aware that no padding
@@ -554,10 +569,22 @@ toByteStringPaddedOnes bs
     | getL bs == 0 = (0, toByteStringOnes bs)
     | otherwise    = (8 - getL bs, toByteStringOnes bs)
 
+toBits :: Word8 -> [Bit]
+toBits = go 0
+  where
+    go :: Word8 -> Word8 -> [Bit]
+    go 8 _ = []
+#ifdef BIGENDIAN
+    go n b = b `mod` 2 : go (n + 1) (b `div` 2)
+#else
+    go n b = b `div` (2 ^ 7) : go (n + 1) (b * 2)
+#endif
+
 -- | \(\mathcal{O}(n)\) Converts a 'BitString' into a list of 'Bit's.
 unpack :: BitString -> [Word8]
-unpack Empty    = []
-unpack (b:::bs) = b : unpack bs
+unpack Empty = []
+unpack bs    = uncurry P.drop . Bi.first fromIntegral
+    $ concatMap toBits . BL.unpack <$> toByteStringPadded bs
 
 -- | \(\mathcal{O}(n)\) Converts a 'BitString' into a list of 'Bool's.
 unpackB :: BitString -> [Bool]

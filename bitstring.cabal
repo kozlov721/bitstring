@@ -54,6 +54,7 @@ library
   build-depends:
       base >=4.7 && <5
     , bytestring >=0.11.1.0
+    , split
   default-language: Haskell2010
 
 test-suite bitstring-bigendian-test
@@ -72,6 +73,7 @@ test-suite bitstring-bigendian-test
     , bitstring
     , bytestring >=0.11.1.0
     , extra
+    , split
   default-language: Haskell2010
 
 test-suite bitstring-test
@@ -89,4 +91,5 @@ test-suite bitstring-test
     , bitstring
     , bytestring >=0.11.1.0
     , extra
+    , split
   default-language: Haskell2010

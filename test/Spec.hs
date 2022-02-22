@@ -82,8 +82,8 @@ simpleTests =
     | x <- [toBinary n | n <- [0..20]]
     , y <- [toBinary n | n <- [0..20]]
     ] ++
-    [ "concat" ~: show (x ++ y ++ z) ~: BS.pack (x ++ y ++ z)
-        ~=? BS.concat (BS.pack <$> [x, y, z])
+    [ "concat" ~: show x ++ " ++ " ++ show y ++ " ++ " ++ show z
+        ~: BS.pack (x ++ y ++ z) ~=? BS.concat (BS.pack <$> [x, y, z])
     | x <- [toBinary n | n <- [0..10]]
     , y <- [toBinary n | n <- [0..10]]
     , z <- [toBinary n | n <- [0..10]]
