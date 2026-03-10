@@ -1,0 +1,67 @@
+name: Deploy Haddock docs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Haskell
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.4'
+          cabal-version: 'latest'
+
+      - name: Cache Cabal store
+        uses: actions/cache@v4
+        with:
+          path: ~/.cabal/store
+          key: ${{ runner.os }}-cabal-${{ hashFiles('**/*.cabal', 'cabal.project.freeze') }}
+          restore-keys: |
+            ${{ runner.os }}-cabal-
+
+      - name: Install dependencies
+        run: cabal update && cabal build --only-dependencies
+
+      - name: Generate Haddock documentation
+        run: |
+          cabal haddock --haddock-html \
+            --haddock-hyperlink-source \
+            --haddock-quickjump \
+            --haddock-option="--built-in-themes"
+          DOC_DIR=$(find dist-newstyle -name "index.html" \
+            -path "*/doc/html/bitstring/*" \
+            | head -1 | xargs dirname)
+          mkdir -p _site
+          cp -r "$DOC_DIR"/. _site/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
